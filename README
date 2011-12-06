@@ -8,7 +8,7 @@ Clojure MongoDB Library.
     (use 'mongoika)
     
     ;; Connect a MongoDB.
-    (with-mongo [mongo (mongo {:host your-mongodb-host :port your-mongodb-port})]
+    (with-mongo [mongo {:host your-mongodb-host :port your-mongodb-port}]
       ;; Dynamic bind a database object.
       (with-db-binding (database mongo :your-db)
         ;; Insertion:
