@@ -95,15 +95,16 @@
 (defn database [mongo db-name]
   (.getDB ^Mongo mongo ^String (name db-name)))
 
+(defmacro with-request [database & body]
+  `(do (.requestStart ^DB ~database)
+       (try ~@body
+            (finally (.requestDone ^DB ~database)))))
+
 (def ^{:dynamic true} *db*)
 (defmacro with-db-binding [db & body]
   `(binding [*db* ~db]
-     ~@body))
-
-(defmacro with-request [body]
-  `(do (.requestStart ^DB *db*)
-       ~@body
-       (finally (.requestDone ^DB db))))
+     (with-request *db*
+       ~@body)))
 
 (defn bound-db []
   *db*)
