@@ -1,8 +1,11 @@
-# Mongoika
+![][LogoImage]
 
+Mongoika
+========
 Clojure MongoDB Library.
 
-## Usage
+Usage
+-----
 
     ;; Use mongoika namespace.
     (use 'mongoika)
@@ -36,8 +39,11 @@ Clojure MongoDB Library.
         ;; Fetch first:
         (fetch-one (order :price :desc (restrict :color :yellow :fruits))))) ; => banana
 
-## License
+License
+-------
 
 Copyright (C) 2011 Nyampass.
 
 Distributed under the Eclipse Public License, the same as Clojure.
+
+[LogoImage]: https://raw.github.com/yuushimizu/Mongoika/master/logo.png
