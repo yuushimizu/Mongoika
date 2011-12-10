@@ -19,30 +19,28 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
     ;; Insertion:
     (insert! :fruits {:name "Banana" :color :yellow :price 100})
     (insert! :fruits {:name "Apple" :color :red :price 80})
-
-    ;; Multiple insertion:
-    (insert-multi! :fruits
-                   {:name "Lemon" :color :yellow :price 50}
-                   {:name "Strawberry" :color :red :price 200})
+    (insert! :fruits {:name "Lemon" :color :yellow :price 50})
 
     ;; Fetch all:
     (query :fruits)
-    ; => [banana apple lemon strawberry]
+    ; => [{:_id #<ObjectId> :name "Banana" :color "yellow" :price 100}
+    ;     {:_id #<ObjectId> :name "Apple" :color "red" :price 80}
+    ;     {:_id #<ObjectId> :name "Lemon" :color "yellow" :price 50}]
 
     ;; Find:
-    (restrict :color :red :fruits)
-    ; => [apple strawberry]
+    (restrict :color :yellow :fruits)
+    ; => [banana lemon]
     
-    (restrict :price {> 100} :fruits)
-    ; => [banana strawberry]
+    (restrict :price {< 100} :fruits)
+    ; => [apple lemon]
 
     ;; Sort:
     (order :price :asc :fruits)
-    ; => [lemon apple banana strawberry]
+    ; => [lemon apple banana]
 
     ;; Find and sort:
-    (order :price :desc (restrict :color :yellow :fruits))
-    ; => [banana lemon]
+    (order :price :asc (restrict :color :yellow :fruits))
+    ; => [lemon banana]
 
     ;; Fetch first:
     (fetch-one (order :price :desc (restrict :color :yellow :fruits)))))
