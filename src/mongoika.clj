@@ -101,6 +101,10 @@
             (finally (.requestDone ^DB ~database)))))
 
 (def ^{:dynamic true} *db*)
+
+(defn set-default-db! [db]
+  (alter-var-root #'*db* (constantly db)))
+
 (defmacro with-db-binding [db & body]
   `(binding [*db* ~db]
      (with-request *db*

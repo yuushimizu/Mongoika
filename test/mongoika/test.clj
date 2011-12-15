@@ -130,11 +130,27 @@
       (is (= mongo (.getMongo db)))
       (is (= WriteConcern/SAFE (.getWriteConcern db))))))
 
+(deftest* set-default-db!-test
+  (with-test-mongo mongo
+    (clean-databases! mongo)
+    (set-default-db! (database mongo :test-db-1))
+    (is (instance? DB (bound-db)))
+    (is (= "test-db-1" (.getName (bound-db))))
+    (is (= mongo (.getMongo (bound-db))))
+    (set-default-db! (database mongo :test-db-2))
+    (is (instance? DB (bound-db)))
+    (is (= "test-db-2" (.getName (bound-db))))
+    (is (= mongo (.getMongo (bound-db))))))
+
 (deftest* with-db-binding-test
   (with-test-mongo mongo
     (with-db-binding (database mongo :test-db-1)
       (is (instance? DB (bound-db)))
       (is (= "test-db-1" (.getName (bound-db))))
+      (is (= mongo (.getMongo (bound-db)))))
+    (with-db-binding (database mongo :test-db-2)
+      (is (instance? DB (bound-db)))
+      (is (= "test-db-2" (.getName (bound-db))))
       (is (= mongo (.getMongo (bound-db)))))))
 
 (deftest* add-user-and-authenticate-test

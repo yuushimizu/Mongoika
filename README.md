@@ -82,6 +82,13 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
 
 `with-db-binding` binds a specified database to the `*db*` global var dynamically, and most functions in Mongoika use it. This macro calls `.requestStart` before the body is executed, and `.requestDone` after.
 
+```clojure
+(set-default-db! (database connection :your-database)
+```
+You can use `set-default-db!` to set a database to `*db*` globally.
+
+`bound-db` returns the current database.
+
 ### Insertion
 
 ```clojure
