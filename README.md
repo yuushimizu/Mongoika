@@ -244,7 +244,7 @@ MongoDB does not return any documents when `count` is called.
 (count (restrict :metadata.width {> 200} (grid-fs :images)))
 ```
 
-A map returned from a GridFS query has a `:data` field, and it's value a sequence of bytes.
+A map returned from a GridFS query has a `:data` field, and it's value is an InputStream of bytes.
 
 You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, `upsert!` and `update-multi!` does not support GridFS.
 
@@ -264,7 +264,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6"]
+[mongoika "0.6.2"]
 ```
 to your project.clj.
 

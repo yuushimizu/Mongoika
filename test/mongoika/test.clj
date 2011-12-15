@@ -5,7 +5,7 @@
         [conversion :only [mongo-object<- <-mongo-object]]])
   (import [clojure.lang IDeref IPending]
           [java.util Date Calendar]
-          [java.io ByteArrayInputStream]
+          [java.io ByteArrayInputStream InputStream]
           [com.mongodb WriteConcern Mongo ServerAddress DB BasicDBObject DBCollection DBRef]
           [com.mongodb.gridfs GridFS]
           [org.bson.types ObjectId]))
@@ -719,9 +719,18 @@
       (is (= *db* (.getDB image-fs)))
       (is (= "image-fs" (.getBucketName image-fs))))))
 
+(defn- bytes<-input-stream [input]
+  (let [buffer-size 100]
+    (lazy-seq (let [bytes (byte-array buffer-size)
+                    read-length (.read input bytes)]
+                (if (= -1 read-length)
+                  nil
+                  (concat (take read-length bytes)
+                          (bytes<-input-stream input)))))))
+
 (deftest* simple-grid-fs-insert-and-file-test
   (with-test-db-binding
-    (let [data (byte-array [])
+    (let [data (ByteArrayInputStream. (byte-array []))
           empty-file (insert! (grid-fs :test-fs) {:data data})
           expected {:aliases nil
                     :uploadDate (:uploadDate empty-file)
@@ -735,7 +744,8 @@
       (is (instance? Date (:uploadDate empty-file)))
       (is (integer? (:chunkSize empty-file)))
       (is (= (assoc expected :data data) empty-file))
-      (is (= (assoc expected :data []) (fetch-one (grid-fs :test-fs)))))
+      (is (= expected (dissoc (fetch-one (grid-fs :test-fs)) :data)))
+      (is (= [] (bytes<-input-stream (:data (fetch-one (grid-fs :test-fs)))))))
     (let [data (into-array Byte/TYPE [0 1 2 3 4 5 6])
           test-file (insert! (grid-fs :test-fs-2)
                              {:data data
@@ -758,7 +768,8 @@
       (is (instance? ObjectId (:_id test-file)))
       (is (instance? Date (:uploadDate test-file)))
       (is (= (assoc expected :data data) test-file))
-      (is (= (assoc expected :data [0 1 2 3 4 5 6]) (fetch-one (grid-fs :test-fs-2)))))))
+      (is (= expected (dissoc (fetch-one (grid-fs :test-fs-2)) :data)))
+      (is (= [0 1 2 3 4 5 6] (bytes<-input-stream (:data (fetch-one (grid-fs :test-fs-2)))))))))
 
 (deftest* grid-fs-query-test
   (with-test-db-binding
@@ -789,61 +800,82 @@
           image3-expected (assoc image3 :data image3-data)]
       (testing "Order"
         (is (= [image1-expected image2-expected image3-expected]
-               (order :filename :asc (grid-fs :images))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :filename :asc (grid-fs :images)))))
         (is (= [image3-expected image2-expected image1-expected]
-               (order :filename :desc (grid-fs :images))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :filename :desc (grid-fs :images)))))
         (is (= [image3-expected image2-expected image1-expected]
-               (order :metadata.size.height :asc (grid-fs :images))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :metadata.size.height :asc (grid-fs :images)))))
         (is (= [image1-expected image2-expected image3-expected]
-               (order :metadata.size.height :desc (grid-fs :images))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :metadata.size.height :desc (grid-fs :images)))))
         (is (= [image3-expected image1-expected image2-expected]
-               (order :rank :asc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :rank :asc (grid-fs :images))))))
       (testing "Restriction"
         (is (= [image2-expected image3-expected]
-               (order :filename :asc (restrict :contentType "image/png" (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :filename :asc (restrict :contentType "image/png" (grid-fs :images))))))
         (is (= [image1-expected image2-expected]
-               (order :filename :asc (restrict :metadata.size.width 200 (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (order :filename :asc (restrict :metadata.size.width 200 (grid-fs :images))))))
         (is (= [image3-expected]
-               (restrict :rank {:$lt 25} (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (restrict :rank {:$lt 25} (grid-fs :images))))))
       (testing "Limit"
         (is (= [image1-expected image2-expected]
-               (limit 2 (order :filename :asc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (limit 2 (order :filename :asc (grid-fs :images))))))
         (is (= [image1-expected]
-               (limit 1 (order :filename :asc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (limit 1 (order :filename :asc (grid-fs :images))))))
         (is (= [image3-expected image2-expected]
-               (limit 2 (order :filename :desc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (limit 2 (order :filename :desc (grid-fs :images))))))
         (is (= [image3-expected]
-               (limit 1 (order :rank :asc (restrict :contentType "image/png" (grid-fs :images))))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (limit 1 (order :rank :asc (restrict :contentType "image/png" (grid-fs :images)))))))
         (is (= [image1-expected image2-expected image3-expected]
-               (limit 10 (order :filename :asc (grid-fs :images))))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (limit 10 (order :filename :asc (grid-fs :images)))))))
       (testing "Skip"
         (is (= [image2-expected image3-expected]
-               (skip 1 (order :filename :asc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 1 (order :filename :asc (grid-fs :images))))))
         (is (= [image2-expected image1-expected]
-               (skip 1 (order :filename :desc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 1 (order :filename :desc (grid-fs :images))))))
         (is (= [image3-expected]
-               (skip 2 (order :rank :desc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 2 (order :rank :desc (grid-fs :images))))))
         (is (= [image2-expected]
-               (skip 2 (order :rank :asc (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 2 (order :rank :asc (grid-fs :images))))))
         (is (= [image2-expected]
-               (skip 1 (order :rank :asc (restrict :contentType "image/png" (grid-fs :images))))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 1 (order :rank :asc (restrict :contentType "image/png" (grid-fs :images)))))))
         (is (= []
-               (skip 5 (grid-fs :images)))))
+               (map #(assoc % :data (bytes<-input-stream (:data %)))
+                    (skip 5 (grid-fs :images))))))
       (testing "Fetch one"
         (is (= image1-expected
-               (fetch-one (order :filename :asc (grid-fs :images)))))
+               (#(assoc % :data (bytes<-input-stream (:data %)))
+                (fetch-one (order :filename :asc (grid-fs :images))))))
         (is (= image2-expected
-               (fetch-one (restrict :_id (:_id image2) (grid-fs :images)))))
+               (#(assoc % :data (bytes<-input-stream (:data %)))
+                (fetch-one (restrict :_id (:_id image2) (grid-fs :images))))))
         (is (= image1-expected
-               (fetch-one (limit 2 (order :filename :asc (grid-fs :images))))))
+               (#(assoc % :data (bytes<-input-stream (:data %)))
+                (fetch-one (limit 2 (order :filename :asc (grid-fs :images)))))))
         (is (= image3-expected
-               (fetch-one (skip 2 (order :filename :asc (grid-fs :images))))))
+               (#(assoc % :data (bytes<-input-stream (:data %)))
+                (fetch-one (skip 2 (order :filename :asc (grid-fs :images)))))))
         (is (nil? (fetch-one (restrict :contentType "text/plain" (grid-fs :images))))))
-      (testing "Lazy reading"
+      (testing ":data field"
         (let [file (fetch-one (restrict :_id (:_id image1) (grid-fs :images)))]
-          (is (not (realized? (:data file))))
-          (is (= image1-data (:data file)))
-          (is (realized? (:data file))))))))
+          (is (instance? InputStream (:data file))))))))
 
 (deftest* grid-fs-insert-test
   (with-test-db-binding
@@ -866,7 +898,8 @@
       (is (instance? Date (:uploadDate file1)))
       (is (= file1-expected file1))
       (is (= (assoc file1-expected :data data1)
-             (fetch-one (restrict :_id (:_id file1) (grid-fs :test-files))))))
+             (#(assoc % :data (bytes<-input-stream (:data %)))
+              (fetch-one (restrict :_id (:_id file1) (grid-fs :test-files)))))))
     (let [data2 (range 30 70)
           data2-iter (ByteArrayInputStream. (into-array Byte/TYPE data2))
           file2-properties {:filename "test-file2"}
@@ -885,7 +918,8 @@
       (is (instance? Date (:uploadDate file2)))
       (is (= file2-expected file2))
       (is (= (assoc file2-expected :data data2)
-             (fetch-one (restrict :_id (:_id file2) (grid-fs :test-files))))))
+             (#(assoc % :data (bytes<-input-stream (:data %)))
+              (fetch-one (restrict :_id (:_id file2) (grid-fs :test-files)))))))
     (let [data3 (range -100 100)
           data3-bytes (into-array Byte/TYPE data3)
           file3-properties {:filename "file3"
@@ -922,12 +956,14 @@
       (is (instance? Date (:uploadDate file3)))
       (is (= file3-expected file3))
       (is (= (assoc file3-expected :data data3)
-             (fetch-one (restrict :_id (:_id file3) (grid-fs :test-files)))))
+             (#(assoc % :data (bytes<-input-stream (:data %)))
+              (fetch-one (restrict :_id (:_id file3) (grid-fs :test-files))))))
       (is (instance? ObjectId (:_id file4)))
       (is (instance? Date (:uploadDate file4)))
       (is (= file4-expected file4))
       (is (= (assoc file4-expected :data data4)
-             (fetch-one (restrict :_id (:_id file4) (grid-fs :test-files))))))))
+             (#(assoc % :data (bytes<-input-stream (:data %)))
+              (fetch-one (restrict :_id (:_id file4) (grid-fs :test-files)))))))))
 
 (deftest* grid-fs-delete-test
   (with-test-db-binding

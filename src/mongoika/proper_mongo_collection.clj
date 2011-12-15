@@ -7,8 +7,6 @@
                            <-db-object
                            mongo-object<-]]
         [parameters :only [fix-parameter]]])
-  (require [mongoika
-            [utils :as utils]])
   (import [clojure.lang IPersistentMap Sequential]
           [java.util List Iterator]
           [com.mongodb DBCollection DBObject DBCursor WriteResult]
@@ -93,8 +91,7 @@
   GridFSDBFile
   (<-mongo-object [this]
     (assoc (<-db-object this)
-      :data (utils/lazy-seq<-input-stream (.getInputStream ^GridFSDBFile this)
-                                          (.getChunkSize ^GridFSDBFile this))))
+      :data (.getInputStream ^GridFSDBFile this)))
   GridFSInputFile
   (<-mongo-object [this]
     (<-db-object this)))
