@@ -278,7 +278,45 @@
         (is (= [{:name "Cola" :_id (:_id cola)}
                 {:name "Banana" :_id (:_id banana)}
                 {:name "Beer" :_id (:_id beer)}]
-               (order :price :asc (project :name :project (project :name (restrict :price {:$gt 100} (query :items))))))))
+               (order :price :asc (project :name :project (project :name (restrict :price {:$gt 100} (query :items)))))))
+        (is (= [{:name "Cola" :price 110 :_id (:_id cola)}
+                {:name "Banana" :price 120 :_id (:_id banana)}
+                {:name "Beer" :price 200 :_id (:_id beer)}]
+               (order :price :asc (project {:name true :price true} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:_id (:_id cola)} {:_id (:_id banana)} {:_id (:_id beer)}]
+               (project :_id (order :price :asc (restrict :price {:$gt 100} :items)))))
+        (is (= [{:_id (:_id cola)} {:_id (:_id banana)} {:_id (:_id beer)}]
+               (project :type (project :name (order :price :asc (restrict :price {:$gt 100} :items))))))
+        (is (= [{:name "Cola" :price 110 :_id (:_id cola)}
+                {:name "Banana" :price 120 :_id (:_id banana)}
+                {:name "Beer" :price 200 :_id (:_id beer)}]
+               (order :price :asc (project {:name true} {:price true} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:name "Cola" :price 110 :_id (:_id cola)}
+                {:name "Banana" :price 120 :_id (:_id banana)}
+                {:name "Beer" :price 200 :_id (:_id beer)}]
+               (order :price :asc (project :name {:price true} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:name "Cola" :price 110 :_id (:_id cola)}
+                {:name "Banana" :price 120 :_id (:_id banana)}
+                {:name "Beer" :price 200 :_id (:_id beer)}]
+               (order :price :asc (project :name {:price true} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:name "Cola" :type "Drink" :_id (:_id cola)}
+                {:name "Banana" :type "Fruit" :_id (:_id banana)}
+                {:name "Beer" :type "Drink" :_id (:_id beer)}]
+               (order :price :asc (project {:price false} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:name "Cola" :_id (:_id cola)}
+                {:name "Banana" :_id (:_id banana)}
+                {:name "Beer" :_id (:_id beer)}]
+               (order :price :asc (project {:price false :type false} (restrict :price {:$gt 100} :items)))))
+        (is (= [{:name "Cola" :_id (:_id cola)}
+                {:name "Banana" :_id (:_id banana)}
+                {:name "Beer" :_id (:_id beer)}]
+               (order :price :asc (project {:price false} (project {:type false} (restrict :price {:$gt 100} :items))))))
+        (is (= [{:name "Cola" :_id (:_id cola)}
+                {:name "Banana" :_id (:_id banana)}
+                {:name "Beer" :_id (:_id beer)}]
+               (order :price :asc (project {:price false} (project :name :price (restrict :price {:$gt 100} :items))))))
+        (is (= [{:_id (:_id cola)} {:_id (:_id banana)} {:_id (:_id beer)}]
+               (order :price :asc (project {:name false :price false :type false} (restrict :price {:$gt 100} :items))))))
       (testing "Limit"
         (is (= [jack james]
                (limit 2 (order :age :desc (query :users)))))

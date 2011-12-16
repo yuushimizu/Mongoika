@@ -128,7 +128,9 @@ This code prints names of all foods.
 ```clojure
 (restrict :name "Cheese" :foods)
 ; => db.foods.find({name: "Cheese"})
+```
 
+```clojure
 (restrict :quantity {:$gt 100} :price {:$lt 300} :foods)
 ; => db.foods.find({quantity: {$gt: 100}, price: {$lt: 300}})
 ```
@@ -147,9 +149,16 @@ You can use following functions as operators in conditions.
 ```clojure
 (project :name :price :foods)
 ; => db.foods.find({}, {name: 1, price: 1})
+```
 
+```clojure
 (project :name :price (restrict :price {> 100} :foods))
 ; => db.foods.find({price: {$gt: 100}}, {name: 1, price: 1})
+```
+
+```clojure
+(project {:price false :quantity false} :foods)
+; => db.foods.find({}, {price: 0, quantity: 0})
 ```
 
 #### Sort
@@ -157,7 +166,9 @@ You can use following functions as operators in conditions.
 ```clojure
 (order :price :asc :foods)
 ; => db.foods.find().sort({price: 1})
+```
 
+```clojure
 (order :price :desc (restrict :quantity {< 100} :foods))
 ; => db.foods.find({quantity: {$lt: 100}}).sort({price: -1})
 ```
@@ -167,7 +178,9 @@ You can use following functions as operators in conditions.
 ```clojure
 (limit 3 :foods)
 ; => db.foods.find().limit(3)
+```
 
+```clojure
 (limit 2 (order :price :asc (restrict :price {> 50} :foods)))
 ; => db.foods.find({price: {$gt: 50}}).sort({price: 1}).limit(2)
 ```
@@ -177,7 +190,9 @@ You can use following functions as operators in conditions.
 ```clojure
 (skip 2 :foods)
 ; => db.foods.find().skip(2)
+```
 
+```clojure
 (skip 3 (order :price :asc :foods))
 ; => db.foods.find().sort({price: 1}).skip(3)
 ```
@@ -264,8 +279,9 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6.2"]
+[mongoika "0.6.3"]
 ```
+
 to your project.clj.
 
 ## Mongoika?

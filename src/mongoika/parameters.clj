@@ -1,6 +1,6 @@
 (ns mongoika.parameters
   (use [mongoika
-        [conversion :only [mongo-object<- mongo-object<-map]]])
+        [conversion :only [keyword<- mongo-object<- mongo-object<-map]]])
   (import [java.lang.reflect Field]
           [com.mongodb Bytes]))
 
@@ -40,9 +40,15 @@
 (defmethod fix-parameter :restrict [parameter restriction]
   (mongo-object<- (or (convert-restriction-special-keys restriction) {})))
 
-(defmethod fix-parameter :project [parameter fields]
-  (if fields
-    (mongo-object<- (zipmap fields (repeat 1)))
+(defmethod fix-parameter :project [parameter projection]
+  (if projection
+    (let [{including-fields true excluding-fields false} projection]
+      (mongo-object<- (cond (nil? including-fields) (zipmap excluding-fields (repeat 0))
+                            (empty? including-fields) {:_id 1}
+                            :else (zipmap (if excluding-fields
+                                            (remove excluding-fields including-fields)
+                                            including-fields)
+                                          (repeat 1)))))
     nil))
 
 (defmethod fix-parameter :order [parameter order]
@@ -89,9 +95,23 @@
     {:$and [current new]}))
 
 (defmethod merge-parameter :project [key current new]
-  (set (if (empty? current)
-         new
-         (filter current new))))
+  (let [new (reduce (partial merge-with into)
+                    (map #(apply hash-map (mapcat (fn [[include? fields]]
+                                                    [include? (set (map (comp keyword first) fields))])
+                                                  (group-by second (if (map? %) % {% true}))))
+                         new))]
+    (if current
+      {true (if (get new true)
+              (if (get current true)
+                (set (filter (get current true) (get new true)))
+                (get new true))
+              (get current true))
+       false (if (get new false)
+               (if (get current false)
+                 (into (get current false) (get new false))
+                 (get new false))
+               (get current false))}
+      new)))
 
 (defmethod merge-parameter :order [key current new]
   (concat new current))
