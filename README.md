@@ -199,10 +199,26 @@ You can use following functions as operators in conditions.
 
 These functions receive a keyword or a query and return a new query.
 
+#### Mapping
+
+```clojure
+(map-after #(assoc :discounted-price (* (:price %) 0.8))
+           (restrict :price {> 100} :foods))
+```
+
+`map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query.
+
+```clojure
+(restrict :price {> 100}
+          (map-after #(assoc :discounted-price (* (:price %) 0.8)) :foods))
+```
+
+You can pass a query returned from `map-after` to other functions that receive a query.
+
 #### Counting
 
 ```clojure
-(count (restrict :price {> 100} :foods))
+(count (restrict :price {> 100} :oods))
 ```
 
 MongoDB does not return any documents when `count` is called.
@@ -279,7 +295,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6.3"]
+[mongoika "0.6.4"]
 ```
 
 to your project.clj.

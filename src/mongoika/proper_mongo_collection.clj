@@ -52,15 +52,15 @@
             ^DBObject (fix-parameter :restrict restriction)))
   (insert! [this ^IPersistentMap parameters ^IPersistentMap obj]
     (first (insert-multi! this parameters [obj])))
-  (insert-multi! [this ^IPersistentMap {:keys [after-map-fn]} ^Sequential objs]
+  (insert-multi! [this ^IPersistentMap {:keys [map-after]} ^Sequential objs]
     (let [mongo-objects (map mongo-object<- objs)]
       (.insert ^DBCollection this
                ^List mongo-objects)
       (let [inserted-objects (map <-mongo-object mongo-objects)]
-        (if after-map-fn
-          (map after-map-fn inserted-objects)
+        (if map-after
+          (map map-after inserted-objects)
           inserted-objects))))
-  (update! [this ^IPersistentMap {:keys [restrict project order skip after-map-fn]} ^DBObject update-operations ^Boolean upsert?]
+  (update! [this ^IPersistentMap {:keys [restrict project order skip map-after]} ^DBObject update-operations ^Boolean upsert?]
     (when skip
       (throw (UnsupportedOperationException. "Update with limit or skip is unsupported.")))
     (let [updated-object (<-mongo-object (.findAndModify ^DBCollection this
@@ -71,8 +71,8 @@
                                                          ^DBObject (mongo-object<- update-operations)
                                                          true ; returnNew
                                                          upsert?))]
-      (if after-map-fn
-        (after-map-fn updated-object)
+      (if map-after
+        (map-after updated-object)
         updated-object)))
   (update-multi! [this ^IPersistentMap {:keys [restrict skip limit] :as parameters} ^DBObject update-operations]
     (when skip
@@ -128,7 +128,7 @@
   (restricted-count [this ^IPersistentMap restriction]
     (.count (.getFileList ^GridFS this
                           ^DBObject (fix-parameter :restrict restriction))))
-  (insert! [this ^IPersistentMap {:keys [after-map-fn]} ^IPersistentMap {:keys [data] :as obj}]
+  (insert! [this ^IPersistentMap {:keys [map-after]} ^IPersistentMap {:keys [data] :as obj}]
     (let [file (.createFile ^GridFS this data)]
       (doseq [[attribute value] (dissoc obj :data)]
         (.put ^GridFSInputFile file ^String (str<- attribute) ^Object (mongo-object<- value)))
@@ -139,8 +139,8 @@
         (.save file chunk-size))
       (let [inserted-file (assoc (<-mongo-object file)
                             :data data)]
-        (if after-map-fn
-          (after-map-fn inserted-file)
+        (if map-after
+          (map-after inserted-file)
           inserted-file))))
   (insert-multi! [this ^IPersistentMap parameters ^Sequential objs]
     (doall (map #(insert! this parameters %) objs)))
@@ -149,10 +149,10 @@
   (update-multi! [this ^IPersistentMap parameters ^IPersistentMap update-operations]
     (throw (UnsupportedOperationException. "GridFS does not support update."))))
 
-(defn fetch [proper-mongo-collection ^IPersistentMap {:keys [after-map-fn] :as parameters}]
+(defn fetch [proper-mongo-collection ^IPersistentMap {:keys [map-after] :as parameters}]
   (let [cursor-seq (make-cursor-seq proper-mongo-collection parameters)]
-    (if after-map-fn
-      (map after-map-fn cursor-seq)
+    (if map-after
+      (map map-after cursor-seq)
       cursor-seq)))
 
 (defn get-count [proper-mongo-collection ^IPersistentMap {:keys [skip limit restrict] :as parameters}]
@@ -163,12 +163,12 @@
       (min limit count)
       count)))
 
-(defn fetch-one [proper-mongo-collection ^IPersistentMap {:keys [order skip after-map-fn] :as parameters}]
+(defn fetch-one [proper-mongo-collection ^IPersistentMap {:keys [order skip map-after] :as parameters}]
   (if (or order (and skip (not (= 0 skip))))
     (first (fetch proper-mongo-collection (assoc parameters :limit 1)))
     (let [object (<-mongo-object (call-find-one-method proper-mongo-collection parameters))]
-      (if after-map-fn
-        (after-map-fn object)
+      (if map-after
+        (map-after object)
         object))))
 
 (defn delete! [proper-mongo-collection ^IPersistentMap {:keys [restrict skip limit] :as parameters}]

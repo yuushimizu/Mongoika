@@ -391,12 +391,12 @@
           (is (realized? sorted-items))
           (is (realized? all-fruits)))))))
 
-(deftest* add-after-map-fn-test
+(deftest* map-after-test
   (with-test-db-binding
-    (let [users (add-after-map-fn (fn [user]
-                              (assoc user
-                                :reversed-name (apply str (reverse (:name user)))))
-                            :users)
+    (let [users (map-after (fn [user]
+                             (assoc user
+                               :reversed-name (apply str (reverse (:name user)))))
+                           :users)
           jack (insert! users {:name "Jack" :age 20})
           jimmy (insert! users {:name "Jimmy" :age 23})
           [james joel] (insert-multi! users {:name "James" :age 17} {:name "Joel" :age 30})]
@@ -425,11 +425,11 @@
         (is (= {:_id (:_id jack) :name "Jack" :age 21}
                (fetch-one (restrict :_id (:_id jack) :users)))))
       (is (= ["James" "Jack" "Jimmy" "Joel"]
-             (order :age :asc (add-after-map-fn :name :users))))
+             (order :age :asc (map-after :name :users))))
       (is (= ["semaJ" "kcaJ" "ymmiJ" "leoJ"]
-             (order :age :asc (add-after-map-fn :reversed-name users))))
+             (order :age :asc (map-after :reversed-name users))))
       (is (= [60 46 42 34]
-             (add-after-map-fn #(* 2 %) (order :age :desc (add-after-map-fn :age :users))))))))
+             (map-after #(* 2 %) (order :age :desc (map-after :age :users))))))))
 
 (deftest* restriction-special-keys-test
   (with-test-db-binding
@@ -1059,20 +1059,20 @@
       (is (= tako @(:item tako-sale)))
       (let [ika-ref (:item (fetch-one (restrict :_id (:_id ika-sale) :sales)))
             tako-ref (:item (fetch-one (restrict :_id (:_id tako-sale) :sales)))]
-      (is (instance? DBRef ika-ref))
-      (is (instance? IDeref ika-ref))
-      (is (instance? IPending ika-ref))
-      (is (not (realized? ika-ref)))
-      (is (= ika @ika-ref))
-      (is (realized? ika-ref))
-      (is (= ika @ika-ref))
-      (is (instance? DBRef tako-ref))
-      (is (instance? IDeref tako-ref))
-      (is (instance? IPending tako-ref))
-      (is (not (realized? tako-ref)))
-      (is (= tako @tako-ref))
-      (is (realized? tako-ref))
-      (is (= tako @tako-ref))))))
+        (is (instance? DBRef ika-ref))
+        (is (instance? IDeref ika-ref))
+        (is (instance? IPending ika-ref))
+        (is (not (realized? ika-ref)))
+        (is (= ika @ika-ref))
+        (is (realized? ika-ref))
+        (is (= ika @ika-ref))
+        (is (instance? DBRef tako-ref))
+        (is (instance? IDeref tako-ref))
+        (is (instance? IPending tako-ref))
+        (is (not (realized? tako-ref)))
+        (is (= tako @tako-ref))
+        (is (realized? tako-ref))
+        (is (= tako @tako-ref))))))
 
 (deftest* object-id?-test
   (is (object-id? (ObjectId.)))

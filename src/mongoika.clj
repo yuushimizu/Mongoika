@@ -191,8 +191,8 @@
   (let [[options mongo-collection] (split-last options-and-mongo-collection)]
     (query/add-parameter mongo-collection :query-options options)))
 
-(defn add-after-map-fn [f mongo-collection]
-  (query/add-parameter mongo-collection :after-map-fn f))
+(defn map-after [f mongo-collection]
+  (query/add-parameter mongo-collection :map-after f))
 
 (defn fetch-one [mongo-collection]
   (proper/fetch-one (query/proper-mongo-collection<- mongo-collection)

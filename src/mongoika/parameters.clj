@@ -128,7 +128,7 @@
 (defmethod merge-parameter :query-options [key current new]
   (into (or current #{}) new))
 
-(defmethod merge-parameter :after-map-fn [key current new]
+(defmethod merge-parameter :map-after [key current new]
   (if current
     (comp new current)
     new))
