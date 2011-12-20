@@ -438,29 +438,28 @@
           apple (insert! :items {:name "Apple" :type "Fruit" :price 80 :param 60})
           cola (insert! :items {:name "Cola" :type "Drink" :price 110 :param ""})
           beer (insert! :items {:name "Beer" :type "Drink" :price 200 :param 10})]
-      (is [mikan apple]
-          (order :price :asc (restrict :price {< 110} :items)))
-      (is [mikan apple cola]
-          (order :price :asc (restrict :price {<= 110} :items)))
-      (is [banana beer]
-          (order :price :asc (restrict :price {> 110} :items)))
-      (is [cola banana beer]
-          (order :price :asc (restrict :price {>= 110} :items)))
-      (is [mikan banana]
-          (order :price :asc (restrict :price {mod [30 0]} :items)))
-      (is [apple cola beer]
-          (order :price :asc (restrict :price {mod [30 20]} :items)))
-      (is [mikan cola]
-          (order :price :asc (restrict :param {type 2} :items)))
-      (is [apple banana beer]
-          (order :price :asc (restrict :param {type 1} :items)))
-      (is [cola beer]
-          (order :price :asc (restrict :type {not "Fruit"} :items)))
-      (is [banana]
-          (order :price :asc (restrict :$and {not {:$or {:type "Drink"
-                                                         :param {type 2}}}
-                                              :price {> 100}}
-                                       :items))))))
+      (is (= [mikan apple]
+             (order :price :asc (restrict :price {< 110} :items))))
+      (is (= [mikan apple cola]
+             (order :price :asc (restrict :price {<= 110} :items))))
+      (is (= [banana beer]
+             (order :price :asc (restrict :price {> 110} :items))))
+      (is (= [cola banana beer]
+             (order :price :asc (restrict :price {>= 110} :items))))
+      (is (= [mikan apple]
+             (order :price :asc (restrict :price {not {>= 110}} :items))))
+      (is (= [mikan banana]
+             (order :price :asc (restrict :price {mod [30 0]} :items))))
+      (is (= [apple cola beer]
+             (order :price :asc (restrict :price {mod [30 20]} :items))))
+      (is (= [mikan cola]
+             (order :price :asc (restrict :param {type 2} :items))))
+      (is (= [apple banana beer]
+             (order :price :asc (restrict :param {type 18} :items))))
+      (is (= [mikan apple cola beer]
+             (order :price :asc (restrict :$or [{:type "Drink"}
+                                                {:price {< 100}}]
+                                          :items)))))))
 
 (deftest* fetch-one-test
   (with-test-db-binding

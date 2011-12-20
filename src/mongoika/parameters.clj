@@ -21,21 +21,23 @@
 (def-restriction-special-keys
   < :$lt
   <= :$lte
-  > :gt
-  >= :gte
+  > :$gt
+  >= :$gte
   mod :$mod
   type :$type
   not :$not)
 
 (defn- convert-restriction-special-keys [restriction]
-  (reduce (fn [converted [key val]]
-            (assoc converted
-              (restriction-special-key key)
-              (if (map? val)
-                (convert-restriction-special-keys val)
-                val)))
-          {}
-          restriction))
+  (if (map? restriction)
+    (reduce (fn [converted [key val]]
+              (assoc converted
+                (restriction-special-key key)
+                (cond (map? val) (convert-restriction-special-keys val)
+                      (coll? val) (map convert-restriction-special-keys val)
+                      :else val)))
+            {}
+            restriction)
+    restriction))
 
 (defmethod fix-parameter :restrict [parameter restriction]
   (mongo-object<- (or (convert-restriction-special-keys restriction) {})))
