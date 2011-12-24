@@ -116,7 +116,10 @@
       new)))
 
 (defmethod merge-parameter :order [key current new]
-  (concat new current))
+  (concat new
+          (remove (fn [[field order]]
+                    (some #(= field (first %)) new))
+                  current)))
 
 (defmethod merge-parameter :limit [key current new]
   (if current (min current new) new))

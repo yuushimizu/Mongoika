@@ -295,7 +295,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6.5"]
+[mongoika "0.6.6"]
 ```
 
 to your project.clj.

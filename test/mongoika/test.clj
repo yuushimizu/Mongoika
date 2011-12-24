@@ -261,7 +261,9 @@
         (is (= [banana]
                (order :price :asc (restrict :price {:$gt 100} :type "Fruit" (query :items)))))
         (is (= [banana]
-               (order :price :asc (restrict :price {:$gt 100} (restrict :type "Fruit" (query :items)))))))
+               (order :price :asc (restrict :price {:$gt 100} (restrict :type "Fruit" (query :items))))))
+        (is (= [mikan apple banana]
+               (order :price :asc (order :price :desc (restrict :type "Fruit" :items))))))
       (testing "Projection"
         (is (= [{:name "Cola" :_id (:_id cola)}
                 {:name "Banana" :_id (:_id banana)}
