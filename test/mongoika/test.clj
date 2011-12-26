@@ -431,7 +431,10 @@
       (is (= ["semaJ" "kcaJ" "ymmiJ" "leoJ"]
              (order :age :asc (map-after :reversed-name users))))
       (is (= [60 46 42 34]
-             (map-after #(* 2 %) (order :age :desc (map-after :age :users))))))))
+             (map-after #(* 2 %) (order :age :desc (map-after :age :users)))))
+      (is (nil? (fetch-one (map-after #(assoc % :rank 1) (restrict :_id 0 :users)))))
+      (is (nil? (update! :$set {:age 10} (map-after #(assoc % :rank 1) (restrict :_id 0 :users)))))
+      (is (empty? (map-after #(assoc % :rank 1) (restrict :_id 0 :users)))))))
 
 (deftest* restriction-special-keys-test
   (with-test-db-binding

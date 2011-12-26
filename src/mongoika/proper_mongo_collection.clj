@@ -71,7 +71,7 @@
                                                          ^DBObject (mongo-object<- update-operations)
                                                          true ; returnNew
                                                          upsert?))]
-      (if map-after
+      (if (and map-after updated-object)
         (map-after updated-object)
         updated-object)))
   (update-multi! [this ^IPersistentMap {:keys [restrict skip limit] :as parameters} ^DBObject update-operations]
@@ -167,7 +167,7 @@
   (if (or order (and skip (not (= 0 skip))))
     (first (fetch proper-mongo-collection (assoc parameters :limit 1)))
     (let [object (<-mongo-object (call-find-one-method proper-mongo-collection parameters))]
-      (if map-after
+      (if (and map-after object)
         (map-after object)
         object))))
 
