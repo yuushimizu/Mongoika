@@ -149,11 +149,13 @@
   (update-multi! [this ^IPersistentMap parameters ^IPersistentMap update-operations]
     (throw (UnsupportedOperationException. "GridFS does not support update."))))
 
-(defn fetch [proper-mongo-collection ^IPersistentMap {:keys [map-after] :as parameters}]
-  (let [cursor-seq (make-cursor-seq proper-mongo-collection parameters)]
-    (if map-after
-      (map map-after cursor-seq)
-      cursor-seq)))
+(defn fetch [proper-mongo-collection ^IPersistentMap {:keys [limit map-after] :as parameters}]
+  (if (and limit (= 0 (fix-parameter :limit limit)))
+    []
+    (let [cursor-seq (make-cursor-seq proper-mongo-collection parameters)]
+      (if map-after
+        (map map-after cursor-seq)
+        cursor-seq))))
 
 (defn get-count [proper-mongo-collection ^IPersistentMap {:keys [skip limit restrict] :as parameters}]
   (let [count (restricted-count proper-mongo-collection restrict)

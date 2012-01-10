@@ -323,7 +323,9 @@
         (is (= [jack james]
                (limit 2 (order :age :desc (query :users)))))
         (is (= [cola]
-               (limit 1 (order :price :desc (restrict :price {:$lt 115} (query :items)))))))
+               (limit 1 (order :price :desc (restrict :price {:$lt 115} (query :items))))))
+        (is (= []
+               (limit 0 :items))))
       (testing "Skip"
         (is (= [banana apple mikan]
                (skip 2 (order :type :asc :price :desc (query :items)))))
