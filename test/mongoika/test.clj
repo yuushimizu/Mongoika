@@ -1094,6 +1094,37 @@
   (is (nil? (object-id<- "iuefgiauofhia")))
   (is (nil? (object-id<- 3123456157))))
 
+(deftest* preserve-meta-test
+  (with-test-db-binding
+    (insert-multi! :fruits {:name "Banana" :price 200} {:name "Apple" :price 100})
+    (is (= "fruits" (-> (with-meta (query :fruits) {::name "fruits"})
+                        meta
+                        ::name)))
+    (is (= "fruits2" (->> (with-meta (query :fruits) {::name "fruits2"})
+                          (restrict :name "Banana")
+                          meta
+                          ::name)))
+    (is (= "fruits3" (->> (with-meta (query :fruits) {::label "fruits3"})
+                          (project :name)
+                          meta
+                          ::label)))
+    (is (= "fruits4" (->> (with-meta (query :fruits) {::label "fruits4"})
+                          (order :price :asc)
+                          meta
+                          ::label)))
+    (is (= "fruits5" (->> (with-meta (query :fruits) {::tag "fruits5"})
+                          (skip 1)
+                          meta
+                          ::tag)))
+    (is (= "fruits6" (->> (with-meta (query :fruits) {::tag "fruits6"})
+                          (limit 1)
+                          meta
+                          ::tag)))
+    (is (= "fruits7" (->> (with-meta (query :fruits) {::key "fruits7"})
+                          (map-after #(assoc % :tax (* (:price %) 0.1)))
+                          meta
+                          ::key)))))
+
 (use-fixtures :each #(time (%)))
 
 ;; (time (run-tests))
