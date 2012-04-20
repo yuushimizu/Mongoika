@@ -264,6 +264,15 @@
                (order :price :asc (restrict :price {:$gt 100} (restrict :type "Fruit" (query :items))))))
         (is (= [mikan apple banana]
                (order :price :asc (order :price :desc (restrict :type "Fruit" :items))))))
+      (testing "Reverse order"
+        (is (= [banana apple mikan]
+               (reverse-order (order :price 1 (restrict :type "Fruit" (query :items))))))
+        (is (= [apple mikan banana]
+               (reverse-order (restrict :type "Fruit" (query :items)))))
+        (is (= [banana apple mikan beer cola]
+               (reverse-order (order :type :asc :price :asc (query :items)))))
+        (is (= [mikan apple banana cola beer]
+               (reverse-order (order :type :asc :price :desc (query :items))))))
       (testing "Projection"
         (is (= [{:name "Cola" :_id (:_id cola)}
                 {:name "Banana" :_id (:_id banana)}

@@ -1,7 +1,7 @@
 (ns mongoika.query
   (use [mongoika
         [conversion :only [<-mongo-object mongo-object<-]]
-        [parameters :only [fix-parameters merge-parameter]]])
+        [parameters :only [merge-parameter]]])
   (require [mongoika
             [proper-mongo-collection :as proper]])
   (import [clojure.lang LazySeq IObj Counted IPersistentMap ISeq Sequential IPersistentCollection IPending]
@@ -109,19 +109,21 @@
   (query-parameters [this]
     {}))
 
-(defn- new-query [proper-mongo-collection parameters meta]
-  (query. ^IPersistentMap meta
-          ^LazySeq (lazy-seq (proper/fetch proper-mongo-collection parameters))
-          proper-mongo-collection
-          ^IPersistentMap parameters))
+(defn- new-query
+  ([mongo-collection parameters meta]
+     (let [proper-mongo-collection (proper-mongo-collection<- mongo-collection)]
+       (query. ^IPersistentMap meta
+               ^LazySeq (lazy-seq (proper/fetch proper-mongo-collection parameters))
+               proper-mongo-collection
+               ^IPersistentMap parameters)))
+  ([mongo-collection parameters]
+     (new-query mongo-collection parameters (if (instance? clojure.lang.IMeta mongo-collection) (meta mongo-collection) {}))))
 
 (defn create [mongo-collection]
-  (new-query (proper-mongo-collection<- mongo-collection)
-             (query-parameters mongo-collection)
-             (meta mongo-collection)))
+  (new-query mongo-collection (query-parameters mongo-collection)))
+
+(defn assoc-parameter [mongo-collection key value]
+  (new-query mongo-collection (assoc (query-parameters mongo-collection) key value)))
 
 (defn add-parameter [mongo-collection key new-value]
-  (new-query (proper-mongo-collection<- mongo-collection)
-             (let [parameters (query-parameters mongo-collection)]
-               (assoc parameters key (merge-parameter key (parameters key) new-value)))
-             (meta mongo-collection)))
+  (assoc-parameter mongo-collection key (merge-parameter key (get (query-parameters mongo-collection) key) new-value)))

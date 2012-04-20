@@ -169,9 +169,17 @@ You can use following functions as operators in conditions.
 ```
 
 ```clojure
-(order :price :desc (restrict :quantity {< 100} :foods))
-; => db.foods.find({quantity: {$lt: 100}}).sort({price: -1})
+(order :price :desc :name :asc (restrict :quantity {< 100} :foods))
+; => db.foods.find({quantity: {$lt: 100}}).sort({price: -1, name: 1})
 ```
+
+`order` sorts documents that are returned from the specified query. You can use :asc and :desc instead of 1 and -1.
+
+```clojure
+(reverse-order (order :price :asc :name :desc :foods))
+; => db.foods.find().sort({price: -1, name: 1})
+
+`reverse-order` reverses the order of the specified query.
 
 #### Limit
 
@@ -197,8 +205,6 @@ You can use following functions as operators in conditions.
 ; => db.foods.find().sort({price: 1}).skip(3)
 ```
 
-These functions receive a keyword or a query and return a new query.
-
 #### Mapping
 
 ```clojure
@@ -206,7 +212,7 @@ These functions receive a keyword or a query and return a new query.
            (restrict :price {> 100} :foods))
 ```
 
-`map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query.
+`map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query instead of a sequence of objects.
 
 ```clojure
 (restrict :price {> 100}
@@ -227,10 +233,14 @@ MongoDB does not return any documents when `count` is called.
 
 ```clojure
 (update! :$set {:quantity 80} (restrict :name "Banana" :foods))
-; => db.foods.find({name: "Banana"}, {$set: {quantity: 80}}, false, false)
+; => db.foods.update({name: "Banana"}, {$set: {quantity: 80}}, false, false)
 ```
 
-`update!` updates just one document that are returned from a received query.
+```clojure
+(update! :$set {:quantity 80} :$inc {:price 10} (restrict :name "Banana" :foods))
+; => db.foods.update({name: "Banana"}, {$set: {quantity: 80}, $inc: {:price 10}}, false, false)
+
+`update!` updates just one document that are returned from the specified query.
 
 ```clojure
 (upsert! :$set {:price 100 :quantity 80} (restrict :name "Cheese" :foods))
@@ -244,7 +254,7 @@ MongoDB does not return any documents when `count` is called.
 ; => db.foods.update({}, {$inc: {price: 10}}, false, true)
 ```
 
-`update-multi!` updates all documents that are returned from a received query.
+`update-multi!` updates all documents that are returned from the specified query.
 
 ### Deletion
 
@@ -253,7 +263,7 @@ MongoDB does not return any documents when `count` is called.
 ; => db.foods.remove({price: {$lt: 100}})
 ```
 
-`delete!` removes all documents that are returned from a received query.
+`delete!` removes all documents that are returned from the specified query.
 
 ### GridFS
 
@@ -295,7 +305,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6.8"]
+[mongoika "0.6.9"]
 ```
 
 to your project.clj.

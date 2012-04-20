@@ -178,6 +178,14 @@
   (let [[conditions mongo-collection] (split-last conditions-and-mongo-collection)]
     (query/add-parameter mongo-collection :order (fix-order-conditions conditions))))
 
+(defn reverse-order [mongo-collection]
+  (let [current-order (:order (query/query-parameters mongo-collection))]
+    (if (empty? current-order)
+      (order :$natural :desc mongo-collection)
+      (query/assoc-parameter mongo-collection :order (map (fn [[field order]]
+                                                            [field (if (and (number? order) (neg? order)) 1 -1)])
+                                                          current-order)))))
+
 (defn limit [n mongo-collection]
   (query/add-parameter mongo-collection :limit n))
 
