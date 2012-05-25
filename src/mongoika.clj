@@ -131,8 +131,27 @@
 (defn db-collection [collection-name]
   (.getCollection ^DB *db* ^String (name collection-name)))
 
-(extend-type Named
-  query/QuerySource
+(extend-protocol query/QuerySource
+  Named
+  (make-seq [this ^IPersistentMap params]
+    (query/make-seq (db-collection this) params))
+  (count-docs [this ^IPersistentMap params]
+    (query/count-docs (db-collection this) params))
+  (fetch-one [this ^IPersistentMap params]
+    (query/fetch-one (db-collection this) params))
+  (insert! [this ^IPersistentMap params ^IPersistentMap doc]
+    (query/insert! (db-collection this) params doc))
+  (insert-multi! [this ^IPersistentMap params ^Sequential docs]
+    (query/insert-multi! (db-collection this) params docs))
+  (update! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/update! (db-collection this) params operations))
+  (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/update-multi! (db-collection this) params operations))
+  (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/upsert! (db-collection this) params operations))
+  (delete! [this ^IPersistentMap params]
+    (query/delete! (db-collection this) params))
+  String
   (make-seq [this ^IPersistentMap params]
     (query/make-seq (db-collection this) params))
   (count-docs [this ^IPersistentMap params]
@@ -151,6 +170,9 @@
     (query/upsert! (db-collection this) params operations))
   (delete! [this ^IPersistentMap params]
     (query/delete! (db-collection this) params)))
+
+(defn query-source? [x]
+  (satisfies? query/QuerySource x))
 
 (defn query [query-source]
   (query/make-query query-source))
@@ -184,10 +206,14 @@
   (query/add-param query-source :order query/order-reverse))
 
 (defn limit [n collection]
-  (query/add-param collection :limit n))
+  (if (query-source? collection)
+    (query/add-param collection :limit n)
+    (take n collection)))
 
 (defn skip [n collection]
-  (query/add-param collection :skip n))
+  (if (query-source? collection)
+    (query/add-param collection :skip n)
+    (drop n collection)))
 
 (defn batch-size [n query-source]
   (query/add-param query-source :batch-size n))
