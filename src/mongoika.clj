@@ -5,7 +5,7 @@
             [proper-mongo-collection :as proper]
             [query :as query]
             [db-ref :as db-ref]])
-  (import [clojure.lang IPersistentMap Named]
+  (import [clojure.lang IPersistentMap Sequential Named]
           [java.lang.reflect Field]
           [com.mongodb Mongo ServerAddress MongoOptions DB DBCollection DBObject WriteResult CommandResult DBRef]
           [com.mongodb.gridfs GridFS]
@@ -31,8 +31,8 @@
   (.setBoolean ^Field field ^MongoOptions options ^Boolean value))
 
 (defn- set-mongo-option! [options option-name value]
-  (letfn [(method [class name parameter-types]
-            (.getMethod ^Class class ^String name ^"[Ljava.lang.Class" (into-array Class parameter-types)))]
+  (letfn [(method [class name param-types]
+            (.getMethod ^Class class ^String name ^"[Ljava.lang.Class" (into-array Class param-types)))]
     (let [field (.getField MongoOptions ^String (name option-name))]
       (set-mongo-options-field! options (.getField MongoOptions ^String (name option-name)) value))))
 
@@ -131,24 +131,29 @@
 (defn db-collection [collection-name]
   (.getCollection ^DB *db* ^String (name collection-name)))
 
-(defprotocol DBCollectionSource
-  (<-db-collection [this]))
-(extend-protocol DBCollectionSource
-  DBCollection
-  (<-db-collection [this] this)
-  Named
-  (<-db-collection [this]
-    (db-collection this)))
+(extend-type Named
+  query/QuerySource
+  (make-seq [this ^IPersistentMap params]
+    (query/make-seq (db-collection this) params))
+  (count-docs [this ^IPersistentMap params]
+    (query/count-docs (db-collection this) params))
+  (fetch-one [this ^IPersistentMap params]
+    (query/fetch-one (db-collection this) params))
+  (insert! [this ^IPersistentMap params ^IPersistentMap doc]
+    (query/insert! (db-collection this) params doc))
+  (insert-multi! [this ^IPersistentMap params ^Sequential docs]
+    (query/insert-multi! (db-collection this) params docs))
+  (update! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/update! (db-collection this) params operations))
+  (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/update-multi! (db-collection this) params operations))
+  (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
+    (query/upsert! (db-collection this) params operations))
+  (delete! [this ^IPersistentMap params]
+    (query/delete! (db-collection this) params)))
 
-(extend-protocol query/MongoCollection
-  Named
-  (proper-mongo-collection<- [this]
-    (db-collection this))
-  (query-parameters [this]
-    {}))
-
-(defn query [mongo-collection]
-  (query/create mongo-collection))
+(defn query [query-source]
+  (query/make-query query-source))
 
 (defn- split-last [coll]
   (loop [butlast [] [f & r] coll]
@@ -156,90 +161,67 @@
       [butlast f]
       (recur (conj butlast f) r))))
 
-(defn restrict [& conditions-and-mongo-collection]
-  (let [[conditions mongo-collection] (split-last conditions-and-mongo-collection)]
-    (query/add-parameter mongo-collection :restrict (apply hash-map conditions))))
+(defn restrict [& conditions-and-query-source]
+  (let [[conditions query-source] (split-last conditions-and-query-source)]
+    (query/add-param query-source :restrict (apply hash-map conditions))))
 
-(defn project [& fields-and-mongo-collection]
-  (let [[fields mongo-collection] (split-last fields-and-mongo-collection)]
-    (query/add-parameter mongo-collection :project fields)))
+(defn project [& fields-and-query-source]
+  (let [[fields query-source] (split-last fields-and-query-source)]
+    (query/add-param query-source :project
+                     (reduce (fn [projection [include? values]]
+                               (assoc projection include? (set (map first values))))
+                             {}
+                             (group-by (fn [[field include?]] (boolean include?))
+                                       (reduce (fn [include-values field] (into include-values (if (map? field) field {field true})))
+                                               {}
+                                               fields))))))
 
-(defn- fix-order-conditions [conditions]
-  (letfn [(fix-pair [[field order]]
-            [field (or ({:asc 1 :desc -1} order)
-                       order)])]
-    (cond (map? conditions) (map fix-pair conditions)
-          (empty? conditions) []
-          (empty? (rest conditions)) [(first conditions) 1]
-          :else (lazy-seq (cons (fix-pair (take 2 conditions))
-                                (fix-order-conditions (nnext conditions)))))))
+(defn order [& conditions-and-query-source]
+  (let [[conditions query-source] (split-last conditions-and-query-source)]
+    (query/add-param query-source :order (partition-all 2 conditions))))
 
-(defn order [& conditions-and-mongo-collection]
-  (let [[conditions mongo-collection] (split-last conditions-and-mongo-collection)]
-    (query/add-parameter mongo-collection :order (fix-order-conditions conditions))))
+(defn reverse-order [query-source]
+  (query/add-param query-source :order query/order-reverse))
 
-(defn reverse-order [mongo-collection]
-  (let [current-order (:order (query/query-parameters mongo-collection))]
-    (if (empty? current-order)
-      (order :$natural :desc mongo-collection)
-      (query/assoc-parameter mongo-collection :order (map (fn [[field order]]
-                                                            [field (if (and (number? order) (neg? order)) 1 -1)])
-                                                          current-order)))))
+(defn limit [n collection]
+  (query/add-param collection :limit n))
 
-(defn limit [n mongo-collection]
-  (query/add-parameter mongo-collection :limit n))
+(defn skip [n collection]
+  (query/add-param collection :skip n))
 
-(defn skip [n mongo-collection]
-  (query/add-parameter mongo-collection :skip n))
+(defn batch-size [n query-source]
+  (query/add-param query-source :batch-size n))
 
-(defn batch-size [n mongo-collection]
-  (query/add-parameter mongo-collection :batch-size n))
+(defn query-options [& options-and-query-source]
+  (let [[options query-source] (split-last options-and-query-source)]
+    (query/add-param query-source :query-options options)))
 
-(defn query-options [& options-and-mongo-collection]
-  (let [[options mongo-collection] (split-last options-and-mongo-collection)]
-    (query/add-parameter mongo-collection :query-options options)))
+(defn map-after [f query-source]
+  (query/add-param query-source :map-after f))
 
-(defn map-after [f mongo-collection]
-  (query/add-parameter mongo-collection :map-after f))
+(defn fetch-one [query-source]
+  (query/fetch-one query-source {}))
 
-(defn fetch-one [mongo-collection]
-  (proper/fetch-one (query/proper-mongo-collection<- mongo-collection)
-                    (query/query-parameters mongo-collection)))
+(defn insert! [query-source doc]
+  (query/insert! query-source {} doc))
 
-(defn insert! [mongo-collection obj]
-  (proper/insert! (query/proper-mongo-collection<- mongo-collection)
-                  (query/query-parameters mongo-collection)
-                  obj))
+(defn insert-multi! [query-source & docs]
+  (query/insert-multi! query-source {} docs))
 
-(defn insert-multi! [mongo-collection & objs]
-  (proper/insert-multi! (query/proper-mongo-collection<- mongo-collection)
-                        (query/query-parameters mongo-collection)
-                        objs))
+(defn update! [& update-operations-and-query-source]
+  (let [[update-operations query-source] (split-last update-operations-and-query-source)]
+    (query/update! query-source {} (apply hash-map update-operations))))
 
-(defn delete! [mongo-collection]
-  (proper/delete! (query/proper-mongo-collection<- mongo-collection)
-                  (query/query-parameters mongo-collection)))
+(defn update-multi! [& update-operations-and-query-source]
+  (let [[update-operations query-source] (split-last update-operations-and-query-source)]
+    (query/update-multi! query-source {} (apply hash-map update-operations))))
 
-(defn- update!- [update-operations-and-mongo-collection upsert?]
-  (let [[update-operations mongo-collection] (split-last update-operations-and-mongo-collection)]
-    (proper/update! (query/proper-mongo-collection<- mongo-collection)
-                    (query/query-parameters mongo-collection)
-                    (apply hash-map update-operations)
-                    upsert?)))
-  
-(defmacro ^{:private true} defupdate [name upsert?]
-  `(defn ~name [& update-operations-and-mongo-collection#]
-     (update!- update-operations-and-mongo-collection# ~upsert?)))
+(defn upsert! [& update-operations-and-query-source]
+  (let [[update-operations query-source] (split-last update-operations-and-query-source)]
+    (query/upsert! query-source {} (apply hash-map update-operations))))
 
-(defupdate update! false)
-
-(defupdate upsert! true)
-
-(defn update-multi! [& update-operations-and-mongo-collection]
-  (let [[update-operations mongo-collection] (split-last update-operations-and-mongo-collection)]
-    (proper/update-multi! (query/proper-mongo-collection<- mongo-collection)
-                          (query/query-parameters mongo-collection)
-                          (apply hash-map update-operations))))
+(defn delete! [query-source]
+  (query/delete! query-source {}))
 
 (defn grid-fs
   ([bucket]

@@ -334,22 +334,49 @@
         (is (= [cola]
                (limit 1 (order :price :desc (restrict :price {:$lt 115} (query :items))))))
         (is (= []
-               (limit 0 :items))))
-      (testing "Skip"
+               (limit 0 :items)))
+;        (is (= [{:name "Cola"} {:name "Banana"}]
+;               (limit 2 [{:name "Cola"} {:name "Banana"} {:name "Beer"} {:name "Mikan"}])))
+;        (is (= [{:name "Apple"}]
+;               (limit 1 [{:name "Apple"} {:name "Banana"}])))
+;        (is (= [{:name "Cola"} {:name "Banana"}]
+;               (limit 2 [{:name "Cola"} {:name "Banana"}])))
+;        (is (= []
+;               (limit 0 [{:name "Cola"} {:name "Banana"}])))
+;        (is (= []
+;               (limit 10 [])))
+;        (is (= []
+;               (limit 2 nil))))
+        )
+        (testing "Skip"
         (is (= [banana apple mikan]
                (skip 2 (order :type :asc :price :desc (query :items)))))
         (is (= [banana apple mikan]
                (skip 1 (skip 1 (order :type :asc (order :price :desc (query :items)))))))
         (is (= [beer cola banana apple mikan]
-               (skip 0 (order :type :asc :price :desc (query :items))))))
-      (testing "Limit and skip"
+               (skip 0 (order :type :asc :price :desc (query :items)))))
+;        (is (= [{:name "Beer"} {:name "Mikan"} {:name "Apple"}]
+;               (skip 2 [{:name "Cola"} {:name "Banana"} {:name "Beer"} {:name "Mikan"} {:name "Apple"}])))
+;        (is (= [{:name "Banana"}]
+;               (skip 1 [{:name "Cola"} {:name "Banana"}])))
+;        (is (= []
+;               (skip 2 [{:name "Cola"} {:name "Banana"}])))
+;        (is (= []
+;               (skip 3 [])))
+;        (is (= []
+;               (skip 5 nil))))
+        )
+        (testing "Limit and skip"
         (is (= [cola banana apple]
                (limit 3 (skip 1 (order :type :asc :price :desc (query :items))))))
         (is (= [cola banana apple]
                (limit 3 (limit 10 (skip 1 (order :type :asc :price :desc (query :items)))))))
         (is (= [cola banana]
-               (limit 2 (skip 1 (order :price :asc (restrict :price {:$gt 70} (query :items))))))))
-      (testing "Make from DBCollection"
+               (limit 2 (skip 1 (order :price :asc (restrict :price {:$gt 70} (query :items)))))))
+;        (is (= [{:name "Mikan"} {:name "Apple"}]
+;               (limit 2 (skip 1 [{:name "Beer"} {:name "Mikan"} {:name "Apple"} {:name "Banana"} {:name "Cola"}])))))
+        )
+        (testing "Make from DBCollection"
         (is (= [banana]
                (restrict :_id (:_id banana) (db-collection :items))))
         (is (= [jack]

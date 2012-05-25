@@ -16,7 +16,7 @@
 
 (defn derefable-db-ref [db collection-name id]
   (delay-db-ref (DBRef. ^DB db ^String collection-name ^Object id)))
-        
+
 (extend-protocol MongoObject
   DBRef
   (<-mongo-object [this]

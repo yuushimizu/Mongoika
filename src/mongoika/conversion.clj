@@ -18,6 +18,8 @@
 (extend-protocol KeywordSource
   Keyword
   (keyword<- [this] this)
+  Named
+  (keyword<- [this] (keyword (name this)))
   Object
   (keyword<- [this] (keyword (str<- this))))
 

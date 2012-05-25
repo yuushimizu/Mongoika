@@ -1,4 +1,4 @@
-(defproject mongoika "0.6.9"
+(defproject mongoika "0.6.10"
   :description "Clojure MongoDB Library"
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.mongodb/mongo-java-driver "2.7.2"]]
