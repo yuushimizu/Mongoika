@@ -638,6 +638,22 @@
       (let [[kahlua get27] (insert-multi! (db-collection :liquors) {:name "Kahlua" :color :black} {:name "GET 27" :color :green})]
         (is (= [campari cointreau get27 kahlua] (order :name :asc :liquors)))))))
 
+(deftest* delete-one!-test
+  (with-test-db-binding
+    (let [item1 (insert! :items {:name "Test1" :type "Sample" :price 10})
+          item2 (insert! :items {:name "Test2" :type "Test" :price 20})
+          item3 (insert! :items {:name "Test3" :type "Sample" :price 30})
+          item4 (insert! :items {:name "Test4" :type "Test" :price 40})]
+      (is (= 4 (count (query :items))))
+      (is (= item2 (delete-one! (restrict :price 20 :items))))
+      (is (= 3 (count (query :items))))
+      (is (= [item1 item3 item4] (order :price :asc :items)))
+      (is (= (dissoc item3 :type :price) (delete-one! (project :name (order :price :desc (restrict :type "Sample" :items))))))
+      (is (= 2 (count (query :items))))
+      (is (= [item1 item4] (order :price :asc :items)))
+      (is (= nil (delete-one! (restrict :price {> 50} :items))))
+      (is (= 2 (count (query :items)))))))
+
 (deftest* delete!-test
   (with-test-db-binding
     (insert-multi! :items

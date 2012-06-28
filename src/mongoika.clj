@@ -149,6 +149,8 @@
     (query/update-multi! (db-collection this) params operations))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (query/upsert! (db-collection this) params operations))
+  (delete-one! [this ^IPersistentMap params]
+    (query/delete-one! (db-collection this) params))
   (delete! [this ^IPersistentMap params]
     (query/delete! (db-collection this) params))
   String
@@ -168,6 +170,8 @@
     (query/update-multi! (db-collection this) params operations))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (query/upsert! (db-collection this) params operations))
+  (delete-one! [this ^IPersistentMap params]
+    (query/delete-one! (db-collection this) params))
   (delete! [this ^IPersistentMap params]
     (query/delete! (db-collection this) params)))
 
@@ -245,6 +249,9 @@
 (defn upsert! [& update-operations-and-query-source]
   (let [[update-operations query-source] (split-last update-operations-and-query-source)]
     (query/upsert! query-source {} (apply hash-map update-operations))))
+
+(defn delete-one! [query-source]
+  (query/delete-one! query-source {}))
 
 (defn delete! [query-source]
   (query/delete! query-source {}))

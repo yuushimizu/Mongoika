@@ -11,6 +11,7 @@
   (update! [this ^IPersistentMap params ^IPersistentMap operations])
   (update-multi! [this ^IPersistentMap params ^IPersistentMap operations])
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations])
+  (delete-one! [this ^IPersistentMap params])
   (delete! [this ^IPersistentMap params]))
 
 (defprotocol QuerySourceWithAdditionalParams
@@ -187,6 +188,8 @@
     (update-multi! (.querySource this) (merge-params (additional-params this) params) operations))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (upsert! (.querySource this) (merge-params (additional-params this) params) operations))
+  (delete-one! [this ^IPersistentMap params]
+    (delete-one! (.querySource this) (merge-params (additional-params this) params)))
   (delete! [this ^IPersistentMap params]
     (delete! (.querySource this) (merge-params (additional-params this) params)))
   QuerySourceWithAdditionalParams

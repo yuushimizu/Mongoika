@@ -125,6 +125,19 @@
                                    true)))) ; multi
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-in-db-collection this params operations true))
+  (delete-one! [this ^IPersistentMap {:keys [restrict project order skip map-after] :as params}]
+    (when skip (throw (UnsupportedOperationException. "Deletion with skip is unsupported.")))
+    (let [deleted-object (<-mongo-object (.findAndModify ^DBCollection this
+                                                         ^DBObject (fix-param :restrict restrict)
+                                                         ^DBObject (fix-param :project project)
+                                                         ^DBObject (fix-param :order order)
+                                                         true ; remove
+                                                         nil ; update
+                                                         false ; returnNew
+                                                         false))] ;upsert
+      (if map-after
+        (map-after deleted-object)
+        deleted-object)))
   (delete! [this ^IPersistentMap params]
     (delete! this params)))
 
@@ -193,10 +206,12 @@
   (insert-multi! [this ^IPersistentMap params ^Sequential docs]
     (doall (map #(query/insert! this params %) docs)))
   (update! [this ^IPersistentMap params ^IPersistentMap operations]
-    (throw (UnsupportedOperationException. "GridFS does not support update.")))
+    (throw (UnsupportedOperationException. "GridFS does not support update!.")))
   (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]
-    (throw (UnsupportedOperationException. "GridFS does not support update.")))
+    (throw (UnsupportedOperationException. "GridFS does not support update!.")))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
-    (throw (UnsupportedOperationException. "GridFS does not support upsert.")))
+    (throw (UnsupportedOperationException. "GridFS does not support upsert!.")))
+  (delete-one! [this ^IPersistentMap params]
+    (throw (UnsupportedOperationException. "GridFS does not support delete-one!.")))
   (delete! [this ^IPersistentMap params]
     (delete! this params)))
