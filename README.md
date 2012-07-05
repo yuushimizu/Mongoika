@@ -265,6 +265,13 @@ MongoDB does not return any documents when `count` is called.
 
 `delete!` removes all documents that are returned from the specified query.
 
+```clojure
+(delete-one! (restrict :price {< 100} :foods))
+; => db.foods.findAndModify({query: {price: {$lt: 100}}, remove: true})
+```
+
+`remove-one!` removes just one document and returns it.
+
 ### GridFS
 
 ```clojure
