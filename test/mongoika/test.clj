@@ -812,6 +812,114 @@
         (is (= [chicken new-pork beef]
                (order :price :asc :meats)))))))
 
+(deftest* map-reduce!-test
+  (with-test-db-binding
+    (ensure-index! :users {:rank :asc} :name :user-rank)
+    (ensure-index! :users {:name :asc} :unique true)
+    (insert-multi! :users
+                   {:name "James" :rank "GOLD" :point 300}
+                   {:name "Jack" :rank "GOLD" :point 1200}
+                   {:name "John" :rank "GOLD" :point 2070}
+                   {:name "Sato" :rank "SILVER" :point 1021}
+                   {:name "Suzuki" :rank "SILVER" :point 324})
+    (ensure-index! :items {:category :asc})
+    (ensure-index! :items {:price :desc})
+    (insert-multi! :items
+                   {:name "Banan" :price 120 :category "Fruit" :enabled true}
+                   {:name "Apple" :price 80 :category "Fruit" :enabled false}
+                   {:name "Grape" :price 130 :category "Fruit" :enabled true}
+                   {:name "Orange" :price 90 :category "Fruit" :enabled false}
+                   {:name "Beer" :price 300 :category "Drink" :enabled true}
+                   {:name "Tea" :price 200 :category "Drink" :enabled true}
+                   {:name "Water" :price 100 :category "Drink" :enabled false})
+    (testing "Map/Reduce without restriction, limit and sorting"
+      (map-reduce! :map "function() {emit(this.rank, this.point);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :total-point-by-rank
+                   :users)
+      (is (= [{:_id "GOLD" :value 3570.0} {:_id "SILVER" :value 1345.0}]
+             (order :_id :asc :total-point-by-rank)))
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :total-price-by-category
+                   :items)
+      (is (= [{:_id "Drink" :value 600.0} {:_id "Fruit" :value 420.0}]
+             (order :_id :asc :total-price-by-category))))
+    (testing "Map/Reduce with finalize"
+      (map-reduce! :map "function() {emit(this.rank, {point: this.point, count: 1});}"
+                   :reduce "function(key, vals) {var sum = {point: 0, count: 0}; for (var i = 0; i < vals.length; ++i) sum = {point: sum.point + vals[i].point, count: sum.count + vals[i].count}; return sum;}"
+                   :finalize "function(key, val) {return val.point / val.count;}"
+                   :out :average-of-points-by-rank
+                   :users)
+      (is (= [{:_id "GOLD" :value 1190.0} {:_id "SILVER" :value 672.5}]
+             (order :_id :asc :average-of-points-by-rank))))
+    (testing "Map/Reduce with restriction"
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :total-enabled-price-by-category
+                   (restrict :enabled true :items))
+      (is (= [{:_id "Drink" :value 500.0} {:_id "Fruit" :value 250.0}]
+             (order :_id :asc :total-enabled-price-by-category))))
+    (testing "Map/Reduce with sort and limit"
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :total-price-of-top5-by-category
+                   (limit 5 (order :price :desc :items)))
+      (is (= [{:_id "Drink" :value 600.0} {:_id "Fruit" :value 250.0}]
+             (order :_id :asc :total-price-of-top5-by-category))))
+    (testing "Map/Reduce with restriction, sort and limit"
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :total-price-of-inexpensive3-by-category
+                   (limit 3 (order :price :asc (restrict :enabled true :items))))
+      (is (= [{:_id "Drink" :value 200.0} {:_id "Fruit" :value 250.0}])
+          (order :_id :asc :total-price-of-inexpensive3-by-category)))
+    (testing "Map/Reduce with out-types"
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :out-types-test
+                   :items)
+      (is (= [{:_id "Drink" :value 600.0} {:_id "Fruit" :value 420.0}]
+             (order :_id :asc :out-types-test)))
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :out-types-test
+                   :out-type :replace
+                   (restrict :category "Fruit" :items))
+      (is (= [{:_id "Fruit" :value 420.0}]
+             (order :_id :asc :out-types-test)))
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :out-types-test
+                   :out-type :merge
+                   (restrict :category "Drink" :items))
+      (is (= [{:_id "Drink" :value 600.0} {:_id "Fruit" :value 420.0}]
+             (order :_id :asc :out-types-test)))
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :out-types-test
+                   :out-type :reduce
+                   :items)
+      (is (= [{:_id "Drink" :value 1200.0} {:_id "Fruit" :value 840.0}]
+             (order :_id :asc :out-types-test)))
+      (map-reduce! :map "function() {emit(this.category, this.price);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :out :out-types-test
+                   :out-type :merge
+                   :verbose false
+                   (restrict :category "Fruit" :items))
+      (is (= [{:_id "Drink" :value 1200.0} {:_id "Fruit" :value 420.0}]
+             (order :_id :asc :out-types-test))))
+    (testing "Map/Reduce with scope"
+      (map-reduce! :map "function() {emit(this.rank, this.point * rate);}"
+                   :reduce "function(key, vals) {var sum = 0; for (var i = 0; i < vals.length; ++i) sum += vals[i]; return sum;}"
+                   :scope {:rate 1.3}
+                   :out :total-of-points-by-rank
+                   :verbose true
+                   :users)
+      (is (= [{:_id "GOLD" :value 4641.0} {:_id "SILVER" :value 1748.5}]
+             (order :_id :asc :total-of-points-by-rank))))))
+
 (deftest* grid-fs-test
   (with-test-db-binding
     (let [fs (grid-fs)]
@@ -1190,5 +1298,7 @@
                           ::key)))))
 
 (use-fixtures :each #(time (%)))
+
+;(map-reduce!-test)
 
 ;; (time (run-tests))

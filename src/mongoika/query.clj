@@ -3,6 +3,7 @@
           [java.util List Collection Iterator ListIterator]))
 
 (defprotocol QuerySource
+  (collection-name [this])
   (make-seq [this ^IPersistentMap params])
   (count-docs [this ^IPersistentMap params])
   (fetch-one [this ^IPersistentMap params])
@@ -12,7 +13,8 @@
   (update-multi! [this ^IPersistentMap params ^IPersistentMap operations])
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations])
   (delete-one! [this ^IPersistentMap params])
-  (delete! [this ^IPersistentMap params]))
+  (delete! [this ^IPersistentMap params])
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]))
 
 (defprotocol QuerySourceWithAdditionalParams
   (additional-params [this]))
@@ -172,6 +174,8 @@
 
 (extend-type query
   QuerySource
+  (collection-name [this]
+    (collection-name (.querySource this)))
   (make-seq [this ^IPersistentMap params]
     (make-seq (.querySource this) (merge-params (additional-params this) params)))
   (count-docs [this ^IPersistentMap params]
@@ -192,6 +196,8 @@
     (delete-one! (.querySource this) (merge-params (additional-params this) params)))
   (delete! [this ^IPersistentMap params]
     (delete! (.querySource this) (merge-params (additional-params this) params)))
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
+    (map-reduce! (.querySource this) (merge-params (additional-params this) params) options))
   QuerySourceWithAdditionalParams
   (additional-params [this]
     (.params this)))

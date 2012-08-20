@@ -9,9 +9,9 @@
         [params :only [fix-param]]])
   (require [mongoika
             [query :as query]])
-  (import [clojure.lang IPersistentMap Sequential]
-          [java.util List Iterator]
-          [com.mongodb DBCollection DBObject DBCursor WriteResult]
+  (import [clojure.lang IPersistentMap Sequential Named]
+          [java.util List Iterator Map]
+          [com.mongodb DBCollection DBObject DBCursor WriteResult MapReduceCommand MapReduceCommand$OutputType]
           [com.mongodb.gridfs GridFS GridFSInputFile GridFSDBFile]))
 
 (defprotocol ProperMongoCollection
@@ -75,6 +75,11 @@
       (map-after updated-object)
       updated-object)))
 
+(def ^{:private true} map-reduce-command-output-type {:inline MapReduceCommand$OutputType/INLINE
+                                                      :merge MapReduceCommand$OutputType/MERGE
+                                                      :reduce MapReduceCommand$OutputType/REDUCE
+                                                      :replace MapReduceCommand$OutputType/REPLACE})
+
 (extend-type DBCollection
   ProperMongoCollection
   (make-mongo-object-seq [this ^IPersistentMap {:keys [restrict project] :as params}]
@@ -93,6 +98,8 @@
     (.remove ^DBCollection this
              ^DBObject (fix-param :restrict restrict)))
   query/QuerySource
+  (collection-name [this]
+    (.getName this))
   (make-seq [this ^IPersistentMap params]
     (make-seq this params))
   (count-docs [this ^IPersistentMap params]
@@ -139,7 +146,26 @@
         (map-after deleted-object)
         deleted-object)))
   (delete! [this ^IPersistentMap params]
-    (delete! this params)))
+    (delete! this params))
+  (map-reduce! [this ^IPersistentMap {:keys [limit order restrict skip map-after] :as params} ^IPersistentMap {:keys [map reduce finalize out out-type scope verbose] :as options}]
+    (when skip (throw (UnsupportedOperationException. "Map/Reduce with skip is unsupported.")))
+    (when map-after (throw (UnsupportedOperationException. "Map/Reduce with map-after is unsupported.")))
+    (<-mongo-object (.mapReduce this
+                                ^MapReduceCommand (let [command (MapReduceCommand. ^DBCollection this
+                                                                                   ^String map
+                                                                                   ^String reduce
+                                                                                   ^String (when out (query/collection-name out))
+                                                                                   ^MapReduceCommand$OutputType (or (map-reduce-command-output-type out-type) out-type MapReduceCommand$OutputType/REPLACE)
+                                                                                   ^DBObject (fix-param :restrict restrict))]
+                                                    (when limit (.setLimit command ^int (fix-param :limit limit)))
+                                                    (when order (.setSort command ^DBObject (fix-param :order order)))
+                                                    (when finalize (.setFinalize command ^String finalize))
+                                                    (when scope (.setScope command ^Map (clojure.core/reduce (fn [variables [key val]]
+                                                                                                               (assoc variables ((if (instance? Named key) name str) key) (mongo-object<- val)))
+                                                                                                             {}
+                                                                                                             scope)))
+                                                    (when-not (nil? verbose) (.setVerbose command ^Boolean (boolean verbose)))
+                                                    command)))))
 
 (extend-protocol MongoObject
   GridFSDBFile
@@ -183,6 +209,8 @@
     (.remove ^GridFS this
              ^DBObject (fix-param :restrict restrict)))
   query/QuerySource
+  (collection-name [this]
+    (.getBucketName this))
   (make-seq [this ^IPersistentMap params]
     (make-seq this params))
   (count-docs [this ^IPersistentMap params]
@@ -214,4 +242,6 @@
   (delete-one! [this ^IPersistentMap params]
     (throw (UnsupportedOperationException. "GridFS does not support delete-one!.")))
   (delete! [this ^IPersistentMap params]
-    (delete! this params)))
+    (delete! this params))
+  (map-reduce [this ^IPersistentMap params ^IPersistentMap options]
+    (throw (UnsupportedOperationException. "GridFS does not support map-reduce!."))))

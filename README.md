@@ -16,6 +16,10 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
 (with-mongo [connection {:host your-mongodb-host :port your-mongodb-port}]
   ;; Bind a database dynamically.
   (with-db-binding (database connection :your-database)
+    ;; Index:
+    (ensure-index :fruits {:name :asc} :unique true)
+    (ensure-index :fruits {:price :asc})
+
     ;; Insertion:
     (insert! :fruits {:name "Banana" :color :yellow :price 100})
     (insert! :fruits {:name "Apple" :color :red :price 80})
@@ -43,8 +47,25 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
     ; => [lemon banana]
 
     ;; Fetch first:
-    (fetch-one (order :price :desc (restrict :color :yellow :fruits)))))
+    (fetch-one (order :price :desc (restrict :color :yellow :fruits)))
     ; => banana
+
+    ;; MapReduce:
+    (map-reduce! :map "function() {
+                         emit(this.color, this.price);
+                       }"
+                 :reduce "function(key, vals) {
+                            var sum = 0;
+                            for (var i = 0; i < vals.length; ++i) sum += vals[i];
+                            return sum;
+                          }"
+                 :out :sum-of-prices
+                 :fruits)
+    (order :color :asc :sum-of-prices)
+    ; => [{:_id "red" :value 80.0}
+    ;     {:_id "yellow" :value 150.0}]
+    ))
+
 ```
 ## Usage
 ### Connect to a MongoDB server.
@@ -272,6 +293,56 @@ MongoDB does not return any documents when `count` is called.
 
 `remove-one!` removes just one document and returns it.
 
+### Index
+
+```clojure
+(ensure-index! :foods {:category :asc})
+(ensure-index! :foods {:name :asc} :unique true)
+(ensure-index! :users {:rank :desc} :user-rank-desc)
+```
+
+`ensure-index!` creates an index.
+
+### MapReduce
+
+```clojure
+(map-reduce! :map "function() {
+                     emit(this.color, this.price);
+                   }"
+             :reduce "function(key, vals) {
+                        var sum = 0;
+                        for (var i = 0; i < vals.length; ++i) sum += vals[i];
+                        return sum;
+                      }"
+             :out :sum-of-prices
+             :fruits)
+```
+
+```clojure
+(map-reduce! :map "function() {
+                     emit(this['item-id'], 1);
+                   }"
+             :reduce "function(key, vals) {
+                        var count = 0;
+                        for (var i = 0; i < vals.length; ++i) count += vals[i];
+                        return count;
+                      }"
+             :out :sell-count
+             :out-type :reduce
+             (restrict :date {>= first-of-month} :date {< first-of-next-month} :fruits))
+```
+
+`map-reduce!` invoke mapReduce command with query and following options:
+- map: map function as a JavaScript code
+- reduce: reduce function as a JavaScript code
+- finalize: finalize function as a JavaScript code
+- out: name of collection to output to
+- out-type: replace/merge/reduce
+- scope: variables to use in map/reduce/finalize functions
+- verbose
+
+The query can contain restriction, limit and sorting.
+
 ### GridFS
 
 ```clojure
@@ -312,7 +383,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.6.12"]
+[mongoika "0.7.0"]
 ```
 
 to your project.clj.

@@ -3,6 +3,7 @@
         [conversion :only [mongo-object<- <-mongo-object keyword<- str<-]]])
   (require [mongoika
             [proper-mongo-collection :as proper]
+            [params :as params]
             [query :as query]
             [db-ref :as db-ref]])
   (import [clojure.lang IPersistentMap Sequential Named]
@@ -128,11 +129,28 @@
 (defn collection-exists? [collection-name]
   (.collectionExists ^DB *db* ^String (name collection-name)))
 
-(defn db-collection [collection-name]
-  (.getCollection ^DB *db* ^String (name collection-name)))
+(defprotocol DBCollectionSource
+  (db-collection [this]))
+(extend-protocol DBCollectionSource
+  String
+  (db-collection [this]
+    (.getCollection ^DB *db* ^String this))
+  Named
+  (db-collection [this]
+    (db-collection ^String (name this)))
+  DBCollection
+  (db-collection [this]
+    this))
+
+(defn ensure-index! [collection keys & {:as options}]
+  (.ensureIndex ^DBCollection (db-collection collection)
+                ^DBObject (params/fix-param :order keys)
+                ^DBObject (mongo-object<- (or options {}))))
 
 (extend-protocol query/QuerySource
   Named
+  (collection-name [this]
+    (name this))
   (make-seq [this ^IPersistentMap params]
     (query/make-seq (db-collection this) params))
   (count-docs [this ^IPersistentMap params]
@@ -153,7 +171,11 @@
     (query/delete-one! (db-collection this) params))
   (delete! [this ^IPersistentMap params]
     (query/delete! (db-collection this) params))
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
+    (query/map-reduce! (db-collection this) params options))
   String
+  (collection-name [this]
+    this)
   (make-seq [this ^IPersistentMap params]
     (query/make-seq (db-collection this) params))
   (count-docs [this ^IPersistentMap params]
@@ -173,7 +195,9 @@
   (delete-one! [this ^IPersistentMap params]
     (query/delete-one! (db-collection this) params))
   (delete! [this ^IPersistentMap params]
-    (query/delete! (db-collection this) params)))
+    (query/delete! (db-collection this) params))
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
+    (query/map-reduce! (db-collection this) params options)))
 
 (defn query-source? [x]
   (satisfies? query/QuerySource x))
@@ -255,6 +279,22 @@
 
 (defn delete! [query-source]
   (query/delete! query-source {}))
+
+(defn ^{:doc "Invoke map/reduce with query and options.
+
+Options:
+- map: map function as a JavaScript code
+- reduce: reduce function as a JavaScript code
+- finalize: finalize function as a JavaScript code
+- out: name of collection to output to
+- out-type: replace/merge/reduce
+- scope: variables to use in map/reduce/finalize functions
+- verbose
+
+The query can contain restriction, limit and order."}
+  map-reduce! [& options-and-query-source]
+  (let [[options query-source] (split-last options-and-query-source)]
+    (query/map-reduce! query-source {} (apply hash-map options))))
 
 (defn grid-fs
   ([bucket]
