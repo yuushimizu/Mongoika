@@ -4,7 +4,7 @@
 
 A MongoDB Library for Clojure.
 
-Mongoika simplify building queries behaved like lazy sequences, and supports basic operations and GridFS using Mongo Java Driver.
+Mongoika simplify building queries behaved like lazy sequences, and supports basic operations, MapReduce and GridFS using Mongo Java Driver.
 
 ## Examples
 
@@ -199,6 +199,7 @@ You can use following functions as operators in conditions.
 ```clojure
 (reverse-order (order :price :asc :name :desc :foods))
 ; => db.foods.find().sort({price: -1, name: 1})
+```
 
 `reverse-order` reverses the order of the specified query.
 
