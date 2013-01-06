@@ -299,7 +299,7 @@ MongoDB does not return any documents when `count` is called.
 ```clojure
 (ensure-index! :foods {:category :asc})
 (ensure-index! :foods {:name :asc} :unique true)
-(ensure-index! :users {:rank :desc} :user-rank-desc)
+(ensure-index! :users {:rank :desc} :name :user-rank-desc)
 ```
 
 `ensure-index!` creates an index.
