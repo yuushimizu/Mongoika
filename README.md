@@ -17,8 +17,8 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
   ;; Bind a database dynamically.
   (with-db-binding (database connection :your-database)
     ;; Index:
-    (ensure-index :fruits {:name :asc} :unique true)
-    (ensure-index :fruits {:price :asc})
+    (ensure-index! :fruits {:name :asc} :unique true)
+    (ensure-index! :fruits {:price :asc})
 
     ;; Insertion:
     (insert! :fruits {:name "Banana" :color :yellow :price 100})
