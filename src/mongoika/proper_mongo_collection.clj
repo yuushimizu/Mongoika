@@ -75,6 +75,19 @@
       (map-after updated-object)
       updated-object)))
 
+(defn- update-multi-in-db-collection [db-collection ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations upsert?]
+  (when skip
+    (throw (UnsupportedOperationException. "Update with skip is unsupported.")))
+  (if limit
+    (if (not (= 1 (fix-param :limit limit)))
+      (throw (UnsupportedOperationException. "Update with limit is supported only with 1."))
+      (if (update-in-db-collection db-collection params operations upsert?) 1 0))
+    (.getN ^WriteResult (.update ^DBCollection db-collection
+                                 ^DBObject (fix-param :restrict restrict)
+                                 ^DBObject (mongo-object<- operations)
+                                 upsert?
+                                 true)))) ; multi
+
 (def ^{:private true} map-reduce-command-output-type {:inline MapReduceCommand$OutputType/INLINE
                                                       :merge MapReduceCommand$OutputType/MERGE
                                                       :reduce MapReduceCommand$OutputType/REDUCE
@@ -119,19 +132,11 @@
   (update! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-in-db-collection this params operations false))
   (update-multi! [this ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations]
-    (when skip
-      (throw (UnsupportedOperationException. "Update with skip is unsupported.")))
-    (if limit
-      (if (not (= 1 (fix-param :limit limit)))
-        (throw (UnsupportedOperationException. "Update with limit is supported only with 1."))
-        (if (query/update! this params operations) 1 0))
-      (.getN ^WriteResult (.update ^DBCollection this
-                                   ^DBObject (fix-param :restrict restrict)
-                                   ^DBObject (mongo-object<- operations)
-                                   false ; upsert
-                                   true)))) ; multi
+    (update-multi-in-db-collection this params operations false))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-in-db-collection this params operations true))
+  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations]
+    (update-multi-in-db-collection this params operations true))
   (delete-one! [this ^IPersistentMap {:keys [restrict project order skip map-after] :as params}]
     (when skip (throw (UnsupportedOperationException. "Deletion with skip is unsupported.")))
     (let [deleted-object (<-mongo-object (.findAndModify ^DBCollection this

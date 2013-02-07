@@ -261,6 +261,7 @@ MongoDB does not return any documents when `count` is called.
 ```clojure
 (update! :$set {:quantity 80} :$inc {:price 10} (restrict :name "Banana" :foods))
 ; => db.foods.update({name: "Banana"}, {$set: {quantity: 80}, $inc: {:price 10}}, false, false)
+```
 
 `update!` updates just one document that are returned from the specified query.
 
@@ -277,6 +278,13 @@ MongoDB does not return any documents when `count` is called.
 ```
 
 `update-multi!` updates all documents that are returned from the specified query.
+
+```clojure
+(upsert-multi! :$inc {:price 10} :foods)
+; => db.foods.update({}, {$inc: {price: 10}}, true, true)
+```
+
+`upsert-multi!` does an "upsert" operation with true as "multi" parameter.
 
 ### Deletion
 
@@ -384,7 +392,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.7.0"]
+[mongoika "0.7.1"]
 ```
 
 to your project.clj.

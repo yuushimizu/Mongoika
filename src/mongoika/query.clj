@@ -12,6 +12,7 @@
   (update! [this ^IPersistentMap params ^IPersistentMap operations])
   (update-multi! [this ^IPersistentMap params ^IPersistentMap operations])
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations])
+  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations])
   (delete-one! [this ^IPersistentMap params])
   (delete! [this ^IPersistentMap params])
   (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]))
@@ -192,6 +193,8 @@
     (update-multi! (.querySource this) (merge-params (additional-params this) params) operations))
   (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
     (upsert! (.querySource this) (merge-params (additional-params this) params) operations))
+  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations]
+    (upsert-multi! (.querySource this) (merge-params (additional-params this) params) operations))
   (delete-one! [this ^IPersistentMap params]
     (delete-one! (.querySource this) (merge-params (additional-params this) params)))
   (delete! [this ^IPersistentMap params]

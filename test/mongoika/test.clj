@@ -812,6 +812,53 @@
         (is (= [chicken new-pork beef]
                (order :price :asc :meats)))))))
 
+(deftest* upsert-multi!-test
+  (with-test-db-binding
+    (let [banana (insert! :items {:name "Banana" :type "Fruit" :price 120})
+          mikan (insert! :items {:name "Mikan" :type "Fruit" :price 60})
+          apple (insert! :items {:name "Apple" :type "Fruit" :price 80})
+          cola (insert! :items {:name "Cola" :type "Drink" :price 110})
+          beer (insert! :items {:name "Beer" :type "Drink" :price 200})]
+      (is (= 1 (upsert-multi! :$set {:name "Ringo"} (restrict :_id (:_id apple) :items))))
+      (let [ringo (assoc apple :name "Ringo")]
+        (is (= [mikan ringo cola banana beer]
+               (order :price :asc :items)))
+        (is (= 1 (upsert-multi! :$set {:name "Orange" :price 70} (restrict :name "Mikan" :items))))
+        (let [orange (assoc mikan :name "Orange" :price 70)]
+          (is (= [orange ringo cola banana beer]
+                 (order :price :asc :items)))
+          (is (= 2 (upsert-multi! :$inc {:price 20} (restrict :type "Drink" :items))))
+          (let [new-cola (assoc cola :price 130)
+                new-beer (assoc beer :price 220)]
+            (is (= [orange ringo banana new-cola new-beer]
+                   (order :price :asc :items)))
+            (is (= 1 (upsert-multi! :$inc {:price 20} (limit 1 (order :price :desc (restrict :type "Drink" :items))))))
+            (let [new-beer (assoc beer :price 240)]
+              (is (= [orange ringo banana new-cola new-beer]
+                     (order :price :asc :items))))))))
+    (let [[chicken beef pork] (insert-multi! :meats
+                                             {:name "Chicken" :price 90}
+                                             {:name "Beef" :price 200}
+                                             {:name "Pork" :price 130})
+          expiry-date (.getTime (doto (Calendar/getInstance)
+                                  (.set 2000 5 10 20 30 15)))]
+      (is (= 1 (upsert-multi! :$set {:price 160 :expiry expiry-date} (restrict :name "Pork" :meats))))
+      (let [new-pork (assoc pork :price 160 :expiry expiry-date)]
+        (is (= [chicken new-pork beef]
+               (order :price :asc :meats)))
+        (is (= 1 (upsert-multi! :$set {:name "Alien" :price 3000} (restrict :name "Alien" :meats))))
+        (let [alien (fetch-one (restrict :name "Alien" :meats))]
+          (is (= "Alien" (:name alien)))
+          (is (= 3000 (:price alien)))
+          (is (= [chicken new-pork beef alien]
+                 (order :price :asc :meats)))
+          (is (= 1 (upsert-multi! :$set {:name "Unknown" :price 5000} (limit 1 (order :price :desc (restrict :name "Unknown" :meats))))))
+          (let [unknown (fetch-one (restrict :name "Unknown" :meats))]
+            (is (= "Unknown" (:name unknown)))
+            (is (= 5000 (:price unknown)))
+            (is (= [chicken new-pork beef alien unknown]
+                   (order :price :asc :meats)))))))))
+
 (deftest* map-reduce!-test
   (with-test-db-binding
     (ensure-index! :users {:rank :asc} :name :user-rank)
@@ -1298,7 +1345,5 @@
                           ::key)))))
 
 (use-fixtures :each #(time (%)))
-
-;(map-reduce!-test)
 
 ;; (time (run-tests))
