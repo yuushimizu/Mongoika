@@ -810,7 +810,12 @@
                (order :price :asc :meats)))
         (is (= 0 (update-multi! :$set {:name "Alien" :price 3000} (limit 1 (order :price :desc (restrict :name "Alien" :meats))))))
         (is (= [chicken new-pork beef]
-               (order :price :asc :meats)))))))
+               (order :price :asc :meats)))))
+    (let [yellow (insert! :colors {:name "Yellow" :score 100 :enabled true})
+          red (insert! :colors {:name "Red" :score 40 :enabled true})
+          green (insert! :colors {:name "Green" :score 180 :enabled true})
+          blue (insert! :colors {:name "Blue" :score 120 :enabled false})]
+      (is (= 2 (update-multi! :$set {:discount true} (restrict :enabled true (restrict :$isolated true (restrict :score {>= 100} :colors)))))))))
 
 (deftest* upsert-multi!-test
   (with-test-db-binding

@@ -123,7 +123,7 @@
 (defmethod merge-param :restrict [key current new]
   (if (empty? current)
     new
-    {:$and [current new]}))
+    (concat current new)))
 
 (defmethod merge-param :project [key current new]
   (if current

@@ -28,19 +28,18 @@
   not :$not)
 
 (defn- convert-restriction-special-keys [restriction]
-  (if (map? restriction)
-    (reduce (fn [converted [key val]]
-              (assoc converted
-                (restriction-special-key key)
-                (cond (map? val) (convert-restriction-special-keys val)
-                      (coll? val) (map convert-restriction-special-keys val)
-                      :else val)))
-            {}
-            restriction)
-    restriction))
+  (letfn [(convert-value [val]
+            (cond (map? val) (reduce (fn [converted [key val]]
+                                       (assoc converted (restriction-special-key key) (convert-value val)))
+                                     {}
+                                     val)
+                  (coll? val) (map convert-value val)
+                  :else val))]
+    (map (fn [[key val]] [(restriction-special-key key) (convert-value val)])
+         restriction)))
 
 (defmethod fix-param :restrict [param restriction]
-  (mongo-object<- (or (convert-restriction-special-keys restriction) {})))
+  (mongo-object<-map (or (convert-restriction-special-keys restriction) {})))
 
 (defmethod fix-param :project [param projection]
   (if projection
