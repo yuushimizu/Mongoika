@@ -240,6 +240,13 @@
     (is (not (query-source? (list {:name "Apple" :price 100} {:name "Banana" :price 120}))))
     (is (not (query-source? (map :name (query :users)))))))
 
+(deftest* ensure-index-test
+  (with-test-db-binding
+    (ensure-index! :items {:name :asc} :unique true)
+    (ensure-index! :items {:price :desc})
+    (ensure-index! :foods [:price :asc :name :asc])
+    (ensure-index! :users [:group :asc :name :desc] :unique true)))
+
 (deftest* query-test
   (with-test-db-binding
     (is (empty? (query :uers)))

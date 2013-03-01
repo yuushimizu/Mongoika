@@ -142,9 +142,9 @@
   (db-collection [this]
     this))
 
-(defn ensure-index! [collection keys & {:as options}]
+(defn ensure-index! [collection orders & {:as options}]
   (.ensureIndex ^DBCollection (db-collection collection)
-                ^DBObject (params/fix-param :order keys)
+                ^DBObject (params/fix-param :order (if (map? orders) orders (partition-all 2 orders)))
                 ^DBObject (mongo-object<- (or options {}))))
 
 (extend-protocol query/QuerySource

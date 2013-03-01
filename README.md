@@ -18,7 +18,7 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
   (with-db-binding (database connection :your-database)
     ;; Index:
     (ensure-index! :fruits {:name :asc} :unique true)
-    (ensure-index! :fruits {:price :asc})
+    (ensure-index! :fruits [:price :asc :name :asc])
 
     ;; Insertion:
     (insert! :fruits {:name "Banana" :color :yellow :price 100})
@@ -329,6 +329,7 @@ You can pass keywords instead of numbers.
 ```clojure
 (ensure-index! :foods {:category :asc})
 (ensure-index! :foods {:name :asc} :unique true)
+(ensure-index! :foods [:price :asc :name :asc])
 (ensure-index! :users {:rank :desc} :name :user-rank-desc)
 ```
 
