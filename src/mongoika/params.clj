@@ -84,13 +84,16 @@
                                 [field (second (first (re-seq #"^QUERYOPTION_(.+)$" (.getName ^Field field))))])
                               (.getFields Bytes))))))
 
+(defn fix-query-option-value [query-option]
+  (if (keyword? query-option) (query-option-map query-option) query-option))
+
 (defn query-options-number [query-options]
   (reduce bit-or
           0
-          (map query-option-map query-options)))
+          (map fix-query-option-value query-options)))
 
 (defmethod fix-param :query-options [param options]
-  ((if (keyword? options) query-option-map query-options-number) options))
+  ((if (keyword? options) fix-query-option-value query-options-number) options))
 
 (defn fix-params [params]
   (apply hash-map (mapcat (fn [[param val]]

@@ -70,6 +70,8 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
 ## Usage
 ### Connect to a MongoDB server.
 
+`mongo` returns a Mongo instance of Mongo Java Driver. It has a connection pool.
+
 ```clojure
 (mongo {:host "127.0.0.1" :port 27017})
 ```
@@ -79,45 +81,49 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
 (mongo {:host "127.0.0.1" :port 27017} {:safe true :socketTimeout 5})
 ```
 
-`mongo` returns a Mongo instance of Mongo Java Driver. It has connection pooling.
+`with-mongo` binds a Mongo instance to the specified symbol. The mongo instance is closed automatically.
 
 ```clojure
 (with-mongo [connection {:host "127.0.0.1" :port 27017} {:safe true}]
   ...)
 ```
 
-`with-mongo` binds a Mongo instance. The mongo instance is closed automatically.
-
 ### Use a database
+
+`database` returns a DB instance.
 
 ```clojure
 (database connection :your-database)
 ```
-
-`database` returns a DB instance.
+`with-db-binding` binds a specified database to the dynamic var `*db*`, and most functions in Mongoika use it. This macro calls `.requestStart` before the body is executed, and `.requestDone` after.
 
 ```clojure
 (with-db-binding (database connection :your-database)
   ...)
 ```
 
-`with-db-binding` binds a specified database to the `*db*` global var dynamically, and most functions in Mongoika use it. This macro calls `.requestStart` before the body is executed, and `.requestDone` after.
+You can use `set-default-db!` to set a database to `*db*`.
 
 ```clojure
 (set-default-db! (database connection :your-database)
 ```
-You can use `set-default-db!` to set a database to `*db*` globally.
 
-`bound-db` returns the current database.
+`bound-db` returns the current bound database.
+
+```clojure
+(bound-db)
+```
 
 ### Insertion
+
+`insert!` inserts a document to the specified collection, and returns the inserted document as a map that has an `_id` field. Each key of a map returned from `insert!` is converted to a keyword.
 
 ```clojure
 (insert! :foods {:name "Cheese" :quantity 120 :price 300})
 ; => db.foods.insert({name: "Cheese", quantity: 120, price 300})
 ```
 
-`insert!` inserts a document to the specified collection, and returns the inserted document as a map that has an `_id` field. Each key in a map returned from `insert!` is converted to a keyword.
+`insert-multi!` inserts multiple documents, and returns inserted documents.
 
 ```clojure
 (insert-multi! :foods
@@ -126,23 +132,21 @@ You can use `set-default-db!` to set a database to `*db*` globally.
                {:name "Chunky Bacon" :quantity 600 :price 800})
 ```
 
-`insert-multi!` inserts multiple documents, and returns inserted documents.
-
 ### Fetching
+
+`query` makes a query behaved like a lazy sequence that contains all documents in the specified collection.
 
 ```clojure
 (query :foods)
 ; => db.foods.find()
 ```
 
-`query` makes a query behaved like a lazy sequence that contains all documents in the specified collection.
+The following code prints names of all foods.
 
 ```clojure
 (doseq [food (query :foods)]
   (println (:name food)))
 ```
-
-This code prints names of all foods.
 
 #### Restriction
 
@@ -184,24 +188,26 @@ You can use following functions as operators in conditions.
 
 #### Sort
 
+
+
 ```clojure
-(order :price :asc :foods)
+(order :price 1 :foods)
 ; => db.foods.find().sort({price: 1})
 ```
+
+You can use :asc and :desc instead of 1 and -1.
 
 ```clojure
 (order :price :desc :name :asc (restrict :quantity {< 100} :foods))
 ; => db.foods.find({quantity: {$lt: 100}}).sort({price: -1, name: 1})
 ```
 
-`order` sorts documents that are returned from the specified query. You can use :asc and :desc instead of 1 and -1.
+`reverse-order` reverses the order of the specified query.
 
 ```clojure
 (reverse-order (order :price :asc :name :desc :foods))
 ; => db.foods.find().sort({price: -1, name: 1})
 ```
-
-`reverse-order` reverses the order of the specified query.
 
 #### Limit
 
@@ -229,19 +235,18 @@ You can use following functions as operators in conditions.
 
 #### Mapping
 
+`map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query instead of a sequence of objects.
+
 ```clojure
 (map-after #(assoc :discounted-price (* (:price %) 0.8))
            (restrict :price {> 100} :foods))
-```
 
-`map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query instead of a sequence of objects.
+You can pass a query returned from `map-after` to other functions that receive a query.
 
 ```clojure
 (restrict :price {> 100}
           (map-after #(assoc :discounted-price (* (:price %) 0.8)) :foods))
 ```
-
-You can pass a query returned from `map-after` to other functions that receive a query.
 
 #### Counting
 
@@ -251,7 +256,23 @@ You can pass a query returned from `map-after` to other functions that receive a
 
 MongoDB does not return any documents when `count` is called.
 
+#### Setting query options
+
+`query-options` sets query options to the specified query.
+
+```clojure
+(query-option com.mongodb.Bytes/QUERYOPTION_NOTIMEOUT :foods)
+```
+
+You can pass keywords instead of numbers.
+
+```clojure
+(query-option :notimeout :foods)
+```
+
 ### Update
+
+`update!` updates just one document that are returned from the specified query.
 
 ```clojure
 (update! :$set {:quantity 80} (restrict :name "Banana" :foods))
@@ -263,46 +284,47 @@ MongoDB does not return any documents when `count` is called.
 ; => db.foods.update({name: "Banana"}, {$set: {quantity: 80}, $inc: {:price 10}}, false, false)
 ```
 
-`update!` updates just one document that are returned from the specified query.
+`upsert!` does an "upsert" operation.
 
 ```clojure
 (upsert! :$set {:price 100 :quantity 80} (restrict :name "Cheese" :foods))
 ; => db.foods.update({name: "Cheese"}, {$set: {price: 100, autntity: 80}}, true, false)
 ```
 
-`upsert!` does an "upsert" operation.
+`update-multi!` updates all documents that are returned from the specified query.
 
 ```clojure
 (update-multi! :$inc {:price 10} :foods)
 ; => db.foods.update({}, {$inc: {price: 10}}, false, true)
 ```
 
-`update-multi!` updates all documents that are returned from the specified query.
+`upsert-multi!` does an "upsert" operation with true as "multi" parameter.
+
 
 ```clojure
 (upsert-multi! :$inc {:price 10} :foods)
 ; => db.foods.update({}, {$inc: {price: 10}}, true, true)
 ```
 
-`upsert-multi!` does an "upsert" operation with true as "multi" parameter.
-
 ### Deletion
+
+`delete!` removes all documents that are returned from the specified query.
 
 ```clojure
 (delete! (restrict :price {< 100} :foods))
 ; => db.foods.remove({price: {$lt: 100}})
 ```
 
-`delete!` removes all documents that are returned from the specified query.
+`delete-one!` removes just one document and returns it.
 
 ```clojure
 (delete-one! (restrict :price {< 100} :foods))
 ; => db.foods.findAndModify({query: {price: {$lt: 100}}, remove: true})
 ```
 
-`remove-one!` removes just one document and returns it.
-
 ### Index
+
+`ensure-index!` creates an index.
 
 ```clojure
 (ensure-index! :foods {:category :asc})
@@ -310,9 +332,18 @@ MongoDB does not return any documents when `count` is called.
 (ensure-index! :users {:rank :desc} :name :user-rank-desc)
 ```
 
-`ensure-index!` creates an index.
-
 ### MapReduce
+
+`map-reduce!` invoke mapReduce command with query and following options:
+- map: map function as a JavaScript code
+- reduce: reduce function as a JavaScript code
+- finalize: finalize function as a JavaScript code
+- out: name of collection to output to
+- out-type: replace/merge/reduce
+- scope: variables to use in map/reduce/finalize functions
+- verbose
+
+The query can contain restriction, limit and sorting.
 
 ```clojure
 (map-reduce! :map "function() {
@@ -341,24 +372,13 @@ MongoDB does not return any documents when `count` is called.
              (restrict :date {>= first-of-month} :date {< first-of-next-month} :fruits))
 ```
 
-`map-reduce!` invoke mapReduce command with query and following options:
-- map: map function as a JavaScript code
-- reduce: reduce function as a JavaScript code
-- finalize: finalize function as a JavaScript code
-- out: name of collection to output to
-- out-type: replace/merge/reduce
-- scope: variables to use in map/reduce/finalize functions
-- verbose
-
-The query can contain restriction, limit and sorting.
-
 ### GridFS
+
+`grid-fs` returns a GridFS instance. You can pass it to functions as a query.
 
 ```clojure
 (grid-fs :images)
 ```
-
-`grid-fs` returns a GridFS instance. You can pass it to functions as a query.
 
 ```clojure
 (query (grid-fs :images))
@@ -392,7 +412,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.7.2"]
+[mongoika "0.7.3"]
 ```
 
 to your project.clj.

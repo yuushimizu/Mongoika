@@ -443,6 +443,17 @@
           (is (realized? sorted-items))
           (is (realized? all-fruits)))))))
 
+(deftest* query-options-test
+  (with-test-db-binding
+    (let [banana (insert! :items {:name "Banana" :type "Fruit" :price 120})
+          mikan (insert! :items {:name "Mikan" :type "Fruit" :price 60})
+          apple (insert! :items {:name "Apple" :type "Fruit" :price 80})
+          cola (insert! :items {:name "Cola" :type "Drink" :price 110})
+          beer (insert! :items {:name "Beer" :type "Drink" :price 200})]
+      (is (= [mikan apple cola banana beer] (order :price :asc (query-options :notimeout :items))))
+      (is (= [mikan apple] (order :price :asc (query-options :notimeout (limit 2 :items)))))
+      (is (= [beer banana cola] (order :price :desc (query-options com.mongodb.Bytes/QUERYOPTION_NOTIMEOUT (limit 3 :items))))))))
+
 (deftest* map-after-test
   (with-test-db-binding
     (let [users (map-after (fn [user]
