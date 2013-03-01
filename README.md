@@ -408,6 +408,26 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 (delete! (restrict :_id image-id (grid-fs :images)))
 ```
 
+### Others
+
+`collection-names` returns names of collections in the current bound database.
+
+```clojure
+(collection-names)
+```
+
+`collection-exists?` returns if the specified collection exists.
+
+```clojure
+(collection-exists? :items)
+```
+
+`collection-stats` returns stats of the specified collection.
+
+```clojure
+(collection-stats :items)
+```
+
 ## Install
 
 Add

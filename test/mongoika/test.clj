@@ -216,6 +216,14 @@
       (is (= "comments" (.getName collection)))
       (is (= (bound-db) (.getDB collection))))))
 
+(deftest* collection-stats-test
+  (with-test-db-binding
+    (insert! :items {:name "apple" :price 120})
+    (insert! :items {:name "orange" :price 90})
+    (is (= 2 (:count (collection-stats :items))))
+    (insert! :users {:name "Jack" :age 30})
+    (is (= 1 (:count (collection-stats :users))))))
+
 (deftest* simple-insert-and-query-test
   (with-test-db-binding
     (is (empty? (query :users)))
