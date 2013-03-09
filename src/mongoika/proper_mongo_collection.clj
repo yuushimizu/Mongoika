@@ -248,5 +248,5 @@
     (throw (UnsupportedOperationException. "GridFS does not support delete-one!.")))
   (delete! [this ^IPersistentMap params]
     (delete! this params))
-  (map-reduce [this ^IPersistentMap params ^IPersistentMap options]
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
     (throw (UnsupportedOperationException. "GridFS does not support map-reduce!."))))
