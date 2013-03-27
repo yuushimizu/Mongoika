@@ -14,19 +14,20 @@
           [com.mongodb DBCollection DBObject DBCursor WriteResult MapReduceCommand MapReduceCommand$OutputType]
           [com.mongodb.gridfs GridFS GridFSInputFile GridFSDBFile]))
 
+(defn apply-postapply-to-object [object postapply]
+  (if (and postapply object) (first (postapply [object])) object))
+
 (defprotocol ProperMongoCollection
   (make-mongo-object-seq [this ^IPersistentMap params])
   (count-restricted-docs [this ^IPersistentMap restriction])
   (call-find-one [this ^IPersistentMap params])
   (call-delete [this ^IPersistentMap params]))
 
-(defn- make-seq [proper-mongo-collection {:keys [limit map-after] :as params}]
+(defn- make-seq [proper-mongo-collection {:keys [limit postapply] :as params}]
   (if (and limit (= 0 (fix-param :limit limit)))
     []
     (let [cursor-seq (map <-mongo-object (make-mongo-object-seq proper-mongo-collection params))]
-      (if map-after
-        (map map-after cursor-seq)
-        cursor-seq))))
+      (if postapply (postapply cursor-seq) cursor-seq))))
 
 (defn- count-docs [proper-mongo-collection {:keys [skip limit restrict] :as params}]
   (let [count (count-restricted-docs proper-mongo-collection restrict)
@@ -36,13 +37,10 @@
       (min limit count)
       count)))
 
-(defn- fetch-one [proper-mongo-collection {:keys [order skip map-after] :as params}]
+(defn- fetch-one [proper-mongo-collection {:keys [order skip postapply] :as params}]
   (if (or order (and skip (not (= 0 skip))))
     (first (make-seq proper-mongo-collection (assoc params :limit 1)))
-    (let [object (<-mongo-object (call-find-one proper-mongo-collection params))]
-      (if (and map-after object)
-        (map-after object)
-        object))))
+    (apply-postapply-to-object (<-mongo-object (call-find-one proper-mongo-collection params)) postapply)))
 
 (defn- delete! [proper-mongo-collection {:keys [restrict skip limit] :as params}]
   (when (or skip limit)
@@ -60,7 +58,7 @@
       (apply-fn (fix-param param (param params)))))
   cursor)
 
-(defn- update-in-db-collection [db-collection {:keys [restrict project order skip map-after] :as params} operations upsert?]
+(defn- update-in-db-collection [db-collection {:keys [restrict project order skip postapply] :as params} operations upsert?]
   (when skip
     (throw (UnsupportedOperationException. "Update with limit or skip is unsupported.")))
   (let [updated-object (<-mongo-object (.findAndModify ^DBCollection db-collection
@@ -71,9 +69,7 @@
                                                        ^DBObject (mongo-object<- operations)
                                                        true ; returnNew
                                                        upsert?))]
-    (if (and map-after updated-object)
-      (map-after updated-object)
-      updated-object)))
+    (apply-postapply-to-object updated-object postapply)))
 
 (defn- update-multi-in-db-collection [db-collection ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations upsert?]
   (when skip
@@ -121,14 +117,12 @@
     (fetch-one this params))
   (insert! [this ^IPersistentMap params ^IPersistentMap doc]
     (first (query/insert-multi! this params [doc])))
-  (insert-multi! [this ^IPersistentMap {:keys [map-after]} ^Sequential docs]
+  (insert-multi! [this ^IPersistentMap {:keys [postapply]} ^Sequential docs]
     (let [mongo-objects (map mongo-object<- docs)]
       (.insert ^DBCollection this
                ^List mongo-objects)
       (let [inserted-objects (map <-mongo-object mongo-objects)]
-        (if map-after
-          (map map-after inserted-objects)
-          inserted-objects))))
+        (if postapply (postapply inserted-objects) inserted-objects))))
   (update! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-in-db-collection this params operations false))
   (update-multi! [this ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations]
@@ -137,7 +131,7 @@
     (update-in-db-collection this params operations true))
   (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-multi-in-db-collection this params operations true))
-  (delete-one! [this ^IPersistentMap {:keys [restrict project order skip map-after] :as params}]
+  (delete-one! [this ^IPersistentMap {:keys [restrict project order skip postapply] :as params}]
     (when skip (throw (UnsupportedOperationException. "Deletion with skip is unsupported.")))
     (let [deleted-object (<-mongo-object (.findAndModify ^DBCollection this
                                                          ^DBObject (fix-param :restrict restrict)
@@ -147,14 +141,12 @@
                                                          nil ; update
                                                          false ; returnNew
                                                          false))] ;upsert
-      (if map-after
-        (map-after deleted-object)
-        deleted-object)))
+      (apply-postapply-to-object deleted-object postapply)))
   (delete! [this ^IPersistentMap params]
     (delete! this params))
-  (map-reduce! [this ^IPersistentMap {:keys [limit order restrict skip map-after] :as params} ^IPersistentMap {:keys [map reduce finalize out out-type scope verbose] :as options}]
+  (map-reduce! [this ^IPersistentMap {:keys [limit order restrict skip postapply] :as params} ^IPersistentMap {:keys [map reduce finalize out out-type scope verbose] :as options}]
     (when skip (throw (UnsupportedOperationException. "Map/Reduce with skip is unsupported.")))
-    (when map-after (throw (UnsupportedOperationException. "Map/Reduce with map-after is unsupported.")))
+    (when postapply (throw (UnsupportedOperationException. "Map/Reduce with postapply is unsupported.")))
     (<-mongo-object (.mapReduce this
                                 ^MapReduceCommand (let [command (MapReduceCommand. ^DBCollection this
                                                                                    ^String map
@@ -222,7 +214,7 @@
     (count-docs this params))
   (fetch-one [this ^IPersistentMap params]
     (fetch-one this params))
-  (insert! [this ^IPersistentMap {:keys [map-after]} ^IPersistentMap {:keys [data] :as doc}]
+  (insert! [this ^IPersistentMap {:keys [postapply]} ^IPersistentMap {:keys [data] :as doc}]
     (let [file (.createFile ^GridFS this data)]
       (doseq [[attribute value] (dissoc doc :data)]
         (.put ^GridFSInputFile file ^String (str<- attribute) ^Object (mongo-object<- value)))
@@ -233,9 +225,7 @@
         (.save file chunk-size))
       (let [inserted-file (assoc (<-mongo-object file)
                             :data data)]
-        (if map-after
-          (map-after inserted-file)
-          inserted-file))))
+        (apply-postapply-to-object inserted-file postapply))))
   (insert-multi! [this ^IPersistentMap params ^Sequential docs]
     (doall (map #(query/insert! this params %) docs)))
   (update! [this ^IPersistentMap params ^IPersistentMap operations]

@@ -233,6 +233,20 @@ You can use :asc and :desc instead of 1 and -1.
 ; => db.foods.find().sort({price: 1}).skip(3)
 ```
 
+#### Applying function
+
+`postapply` applies the specified function to documents returned from the specified query, that is, `postapply` behaves like `apply`, but `postapply` returns a new query.
+
+```clojure
+(postapply #(partition-all 2 %) :foods)
+
+(postapply #(filter (fn [document] (odd? (:number document))) (restrict :type 1 :users)))
+```
+
+A function passed to `postapply` must return a sequence.
+
+You can pass a query returned from `postapply` to other functions that receive a query.
+
 #### Mapping
 
 `map-after` applies the specified function to each document returned from the specified query, that is, `map-after` behaves like `map`, but `map-after` returns a new query instead of a sequence of objects.
@@ -433,7 +447,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.7.3"]
+[mongoika "0.7.7"]
 ```
 
 to your project.clj.

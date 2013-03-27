@@ -469,6 +469,18 @@
       (is (= [mikan apple] (order :price :asc (query-options :notimeout (limit 2 :items)))))
       (is (= [beer banana cola] (order :price :desc (query-options com.mongodb.Bytes/QUERYOPTION_NOTIMEOUT (limit 3 :items))))))))
 
+(deftest* postapply-test
+  (with-test-db-binding
+    (let [banana (insert! :items {:name "Banana" :type "Fruit" :price 120 :number 1})
+          mikan (insert! :items {:name "Mikan" :type "Fruit" :price 60 :number 2})
+          apple (insert! :items {:name "Apple" :type "Fruit" :price 80 :number 3})
+          cola (insert! :items {:name "Cola" :type "Drink" :price 110 :number 3})
+          beer (insert! :items {:name "Beer" :type "Drink" :price 200 :number 2})]
+      (is (= [[mikan apple] [cola banana] [beer]] (postapply #(partition-all 2 %) (order :price :items))))
+      (is (= [apple banana cola] (postapply #(filter (fn [item] (odd? (:number item))) %) (order :name :items))))
+      (is (= [apple banana cola] (order :name :items (postapply #(filter (fn [item] (odd? (:number item))) %) :items))))
+      (is (nil? (fetch-one (order :price (postapply #(filter (fn [item] (= 3 (:number item))) %) :items))))))))
+
 (deftest* map-after-test
   (with-test-db-binding
     (let [users (map-after (fn [user]

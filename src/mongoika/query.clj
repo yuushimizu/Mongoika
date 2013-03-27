@@ -163,7 +163,7 @@
 (defmethod merge-param :query-options [key current new]
   (into (or current #{}) new))
 
-(defmethod merge-param :map-after [key current new]
+(defmethod merge-param :postapply [key current new]
   (if current
     (comp new current)
     new))

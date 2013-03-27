@@ -257,8 +257,11 @@
   (let [[options query-source] (split-last options-and-query-source)]
     (query/add-param query-source :query-options options)))
 
+(defn postapply [f query-source]
+  (query/add-param query-source :postapply f))
+
 (defn map-after [f query-source]
-  (query/add-param query-source :map-after f))
+  (postapply (partial map f) query-source))
 
 (defn fetch-one [query-source]
   (query/fetch-one query-source {}))
