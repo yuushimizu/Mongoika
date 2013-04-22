@@ -273,6 +273,19 @@
         (is (= [jack]
                (restrict :_id (:_id jack) (query :users))))
         (is (empty? (restrict :price {:$gt 300} (query :items)))))
+      (testing "Nested restriction"
+        (is (= [cola]
+               (sort-by :price (restrict :price {:$lt 150} (restrict :type "Drink" :items)))))
+        (is (= [apple cola banana]
+               (sort-by :price (restrict :price {:$lt 150} (restrict :price {:$gt 70} :items)))))
+        (is (= [cola]
+               (sort-by :price (restrict :type "Drink" (restrict :$and [{:price {:$gt 70}} {:price {:$lt 150}}] :items)))))
+        (is (= [apple cola banana]
+               (sort-by :price (restrict :$and [{:price {:$lt 150}}] (restrict :$and [{:price {:$gt 70}}] :items)))))
+        (is (= [apple banana]
+               (sort-by :price (restrict :type "Fruit" (restrict :$and [{:price {:$lt 150}}] (restrict :$and [{:price {:$gt 70}}] :items))))))
+        (is (= [cola beer]
+               (sort-by :price (restrict :type "Drink" (restrict :$isolated true :items))))))
       (testing "Order"
         (is (= [mikan apple banana]
                (order :price 1 (restrict :type "Fruit" (query :items)))))

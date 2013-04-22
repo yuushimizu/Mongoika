@@ -120,10 +120,21 @@
 
 (defmulti merge-param (fn [key current new] key))
 
+(defmulti unnestable-special-restriction-key? identity)
+
+(def unnestable-special-restriction-keys #{:$explain :$hint :$isolated :$orderby :$showDiskLoc :$snapshot :$query})
+
+(defmethod unnestable-special-restriction-key? :default [key] (boolean (unnestable-special-restriction-keys key)))
+
+(defn merge-restriction-param [current [key value]]
+  (cond (empty? current) {key value}
+        (unnestable-special-restriction-key? key) (assoc current key value)
+        :else (let [{unnestables true nestables false} (group-by #(unnestable-special-restriction-key? (first %)) current)]
+                (merge (into {} unnestables)
+                       {:$and [(into {} nestables) {key value}]}))))
+
 (defmethod merge-param :restrict [key current new]
-  (if (empty? current)
-    new
-    (concat current new)))
+  (reduce merge-restriction-param current new))
 
 (defmethod merge-param :project [key current new]
   (if current
