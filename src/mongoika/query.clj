@@ -93,7 +93,7 @@
 (def proper-mongodb-collection-adapter
   (proxy [mongoika.ProperMongoDBCollectionAdapter] []
     (makeDocumentsLazySequence [proper-mongodb-collection parameters]
-      (let [db-request-counter-frame (request/new-frame)]
+      (let [db-request-counter-frame (request/new-frame (proper-mongodb-collection/database proper-mongodb-collection))]
         (lazy-seq (proper-mongodb-collection/make-sequence proper-mongodb-collection parameters db-request-counter-frame))))
     (countDocuments [proper-mongodb-collection parameters]
       (proper-mongodb-collection/count-documents proper-mongodb-collection parameters))))

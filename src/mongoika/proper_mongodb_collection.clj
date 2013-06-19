@@ -14,6 +14,7 @@
 
 (defprotocol ProperMongoDBCollection
   (collection-name [this])
+  (database [this])
   (make-cursor [this ^IPersistentMap params])
   (sequence-from-cursor [this ^DBCursor cursor])
   (call-find-one [this ^IPersistentMap params])
@@ -102,6 +103,8 @@
   ProperMongoDBCollection
   (collection-name [this]
     (.getName this))
+  (database [this]
+    (.getDB this))
   (make-cursor [this ^IPersistentMap {:keys [restrict project] :as params}]
     (apply-db-cursor-params! (.find ^DBCollection this
                                     ^DBObject (fix-param :restrict restrict)
@@ -181,6 +184,8 @@
   ProperMongoDBCollection
   (collection-name [this]
     (.getBucketName this))
+  (database [this]
+    (.getDB this))
   (make-cursor [this ^IPersistentMap {:keys [restrict] :as params}]
     (apply-db-cursor-params! (.getFileList ^GridFS this
                                            ^DBObject (fix-param :restrict restrict))
