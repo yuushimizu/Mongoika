@@ -95,7 +95,7 @@ Mongoika simplify building queries behaved like lazy sequences, and supports bas
 ```clojure
 (database connection :your-database)
 ```
-`with-db-binding` binds a specified database to the dynamic var `*db*`, and most functions in Mongoika use it. This macro calls `.requestStart` before the body is executed, and `.requestDone` after.
+`with-db-binding` binds a specified database to the dynamic var `*db*`, and most functions in Mongoika use it.
 
 ```clojure
 (with-db-binding (database connection :your-database)
@@ -447,7 +447,7 @@ You can use `insert!`, `insert-multi!` and `delete!` for GridFS, but `update!`, 
 Add
 
 ```clojure
-[mongoika "0.8.1"]
+[mongoika "0.8.5"]
 ```
 
 to your project.clj.

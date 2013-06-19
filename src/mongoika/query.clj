@@ -1,6 +1,7 @@
 (ns mongoika.query
   (require [mongoika
-            [proper-mongodb-collection :as proper-mongodb-collection]])
+            [proper-mongodb-collection :as proper-mongodb-collection]
+            [request :as request]])
   (import [clojure.lang LazySeq IObj Counted IPersistentMap ISeq Sequential IPersistentCollection IPending IMeta]
           [java.util List Collection Iterator ListIterator]
           [com.mongodb DBCollection]
@@ -91,6 +92,9 @@
 
 (def proper-mongodb-collection-adapter
   (proxy [mongoika.ProperMongoDBCollectionAdapter] []
+    (makeDocumentsLazySequence [proper-mongodb-collection parameters]
+      (let [db-request-counter-frame (request/new-frame)]
+        (lazy-seq (proper-mongodb-collection/make-sequence proper-mongodb-collection parameters db-request-counter-frame))))
     (countDocuments [proper-mongodb-collection parameters]
       (proper-mongodb-collection/count-documents proper-mongodb-collection parameters))))
 
@@ -98,7 +102,7 @@
   ([query-source params meta]
      (let [proper-mongodb-collection (proper-mongodb-collection query-source)
            merged-params (merge-params (parameters query-source) params)]
-       (mongoika.QuerySequence. ^IPersistentMap meta ^LazySeq (lazy-seq (proper-mongodb-collection/make-sequence proper-mongodb-collection merged-params)) ^Object proper-mongodb-collection ^IPersistentMap merged-params ^mongoika.ProperMongoDBCollectionAdapter proper-mongodb-collection-adapter)))
+       (mongoika.QuerySequence. ^IPersistentMap meta ^Object proper-mongodb-collection ^IPersistentMap merged-params ^mongoika.ProperMongoDBCollectionAdapter proper-mongodb-collection-adapter)))
   ([query-source params]
      (make-query query-source params (if (instance? IMeta query-source) (meta query-source) {})))
   ([query-source]

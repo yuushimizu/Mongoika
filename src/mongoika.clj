@@ -5,6 +5,7 @@
             [proper-mongodb-collection :as proper-mongodb-collection]
             [params :as params]
             [query :as query]
+            [request :as request]
             [db-ref :as db-ref]])
   (import [clojure.lang IPersistentMap Sequential Named]
           [java.lang.reflect Field]
@@ -96,10 +97,8 @@
 (defn database [mongo db-name]
   (.getDB ^Mongo mongo ^String (name db-name)))
 
-(defmacro with-request [database & body]
-  `(do (.requestStart ^DB ~database)
-       (try (do ~@body)
-            (finally (.requestDone ^DB ~database)))))
+(defmacro with-request [& body]
+  `(request/with-request *db* ~@body))
 
 (def ^{:dynamic true} *db*)
 
@@ -108,8 +107,7 @@
 
 (defmacro with-db-binding [db & body]
   `(binding [*db* ~db]
-     (with-request *db*
-       ~@body)))
+     ~@body))
 
 (defn bound-db []
   *db*)

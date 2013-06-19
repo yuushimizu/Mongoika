@@ -31,10 +31,11 @@
 (defn ^{:private true} apply-postapply-to-object [object postapply]
   (if (and postapply object) (first (postapply [object])) object))
 
-(defn make-sequence [proper-mongodb-collection {:keys [limit postapply] :as params}]
+(defn make-sequence [proper-mongodb-collection {:keys [limit postapply] :as params} db-request-counter-frame]
   (if (and limit (= 0 (fix-param :limit limit)))
     []
-    (let [cursor-sequence (map <-mongo-object (sequence-from-cursor proper-mongodb-collection (make-cursor proper-mongodb-collection params)))]
+    (let [cursor (mongoika.DBCursorWrapper. (make-cursor proper-mongodb-collection params) db-request-counter-frame)
+          cursor-sequence (map <-mongo-object (sequence-from-cursor proper-mongodb-collection cursor))]
       (if postapply (postapply cursor-sequence) cursor-sequence))))
 
 (defn count-documents [proper-mongodb-collection {:keys [skip limit restrict] :as params}]
@@ -47,7 +48,7 @@
 
 (defn fetch-one [proper-mongodb-collection {:keys [order skip postapply] :as params}]
   (if (or order (and skip (not (= 0 skip))))
-    (first (make-sequence proper-mongodb-collection (assoc params :limit 1)))
+    (first (make-sequence proper-mongodb-collection (assoc params :limit 1) nil))
     (apply-postapply-to-object (<-mongo-object (call-find-one proper-mongodb-collection params)) postapply)))
 
 (defn delete! [proper-mongodb-collection {:keys [restrict skip limit] :as params}]

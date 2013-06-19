@@ -153,6 +153,30 @@
       (is (= "test-db-2" (.getName (bound-db))))
       (is (= mongo (.getMongo (bound-db)))))))
 
+(deftest* multiple-database-test
+  (with-test-mongo mongo
+    (clean-databases! mongo)
+    (let [apple (with-db-binding (database mongo :test-db-1)
+                  (insert! :items {:name "apple"}))
+          mikan (with-db-binding (database mongo :test-db-2)
+                  (insert! :items {:name "mikan"}))]
+      (let [items (with-db-binding (database mongo :test-db-1)
+                    (with-db-binding (database mongo :test-db-2)
+                      (query :items)))]
+        (is (= [mikan] (doall items))))
+      (let [items (with-db-binding (database mongo :test-db-2)
+                    (with-db-binding (database mongo :test-db-1)
+                      (query :items)))]
+        (is (= [apple] (doall items)))))))
+
+(deftest* with-request-test
+  (with-test-mongo mongo
+    (clean-databases! mongo)
+    (with-db-binding (database mongo :test-db-1)
+      (with-request
+        (let [apple (insert! :items {:name "apple"})]
+          (is (= [apple] (query :items))))))))
+
 (deftest* add-user-and-authenticate-test
   (with-test-mongo mongo
     (clean-databases! mongo)

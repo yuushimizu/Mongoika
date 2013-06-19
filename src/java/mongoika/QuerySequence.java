@@ -15,17 +15,17 @@ import java.util.Collection;
 
 public class QuerySequence implements IObj, Counted, Sequential, ISeq, List<Object>, IPending {
     private final IPersistentMap meta;
-    private final LazySeq documentsLazySequence;
     private final Object properMongoDBCollection;
     private final IPersistentMap parameters;
     private final ProperMongoDBCollectionAdapter properMongoDBCollectionAdapter;
+    private final LazySeq documentsLazySequence;
 
-    public QuerySequence(final IPersistentMap meta, final LazySeq documentsLazySequence, final Object properMongoDBCollection, final IPersistentMap parameters, final ProperMongoDBCollectionAdapter properMongoDBCollectionAdapter) {
+    public QuerySequence(final IPersistentMap meta, final Object properMongoDBCollection, final IPersistentMap parameters, final ProperMongoDBCollectionAdapter properMongoDBCollectionAdapter) {
         this.meta = meta;
-        this.documentsLazySequence = documentsLazySequence;
         this.properMongoDBCollection = properMongoDBCollection;
         this.parameters = parameters;
         this.properMongoDBCollectionAdapter = properMongoDBCollectionAdapter;
+        this.documentsLazySequence = properMongoDBCollectionAdapter.makeDocumentsLazySequence(properMongoDBCollection, parameters);
     }
 
     public Object properMongoDBCollection() {
@@ -49,7 +49,7 @@ public class QuerySequence implements IObj, Counted, Sequential, ISeq, List<Obje
     }
 
     public IObj withMeta(final IPersistentMap meta) {
-        return new QuerySequence(meta, this.documentsLazySequence, this.properMongoDBCollection, this.parameters, this.properMongoDBCollectionAdapter);
+        return new QuerySequence(meta, this.properMongoDBCollection, this.parameters, this.properMongoDBCollectionAdapter);
     }
 
     public int count() {
