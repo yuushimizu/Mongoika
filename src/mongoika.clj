@@ -98,7 +98,7 @@
 
 (defmacro with-request [database & body]
   `(do (.requestStart ^DB ~database)
-       (try ~@body
+       (try (do ~@body)
             (finally (.requestDone ^DB ~database)))))
 
 (def ^{:dynamic true} *db*)
