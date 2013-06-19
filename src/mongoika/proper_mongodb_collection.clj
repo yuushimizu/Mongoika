@@ -1,4 +1,4 @@
-(ns mongoika.proper-mongo-collection
+(ns mongoika.proper-mongodb-collection
   (use [mongoika
         [conversion :only [MongoObject
                            str<-
@@ -7,48 +7,56 @@
                            <-db-object
                            mongo-object<-]]
         [params :only [fix-param]]])
-  (require [mongoika
-            [query :as query]])
   (import [clojure.lang IPersistentMap Sequential Named]
           [java.util List Iterator Map]
           [com.mongodb DBCollection DBObject DBCursor WriteResult MapReduceCommand MapReduceCommand$OutputType]
           [com.mongodb.gridfs GridFS GridFSInputFile GridFSDBFile]))
 
-(defn apply-postapply-to-object [object postapply]
+(defprotocol ProperMongoDBCollection
+  (collection-name [this])
+  (make-cursor [this ^IPersistentMap params])
+  (sequence-from-cursor [this ^DBCursor cursor])
+  (call-find-one [this ^IPersistentMap params])
+  (count-restricted-documents [this ^IPersistentMap restriction])
+  (insert! [this ^IPersistentMap params ^IPersistentMap document])
+  (insert-multi! [this ^IPersistentMap params ^Sequential documents])
+  (update! [this ^IPersistentMap params ^IPersistentMap operations])
+  (update-multi! [this ^IPersistentMap params ^IPersistentMap operations])
+  (upsert! [this ^IPersistentMap params ^IPersistentMap operations])
+  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations])
+  (delete-one! [this ^IPersistentMap params])
+  (call-delete [this ^IPersistentMap params])
+  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]))
+
+(defn ^{:private true} apply-postapply-to-object [object postapply]
   (if (and postapply object) (first (postapply [object])) object))
 
-(defprotocol ProperMongoCollection
-  (make-mongo-object-seq [this ^IPersistentMap params])
-  (count-restricted-docs [this ^IPersistentMap restriction])
-  (call-find-one [this ^IPersistentMap params])
-  (call-delete [this ^IPersistentMap params]))
-
-(defn- make-seq [proper-mongo-collection {:keys [limit postapply] :as params}]
+(defn make-sequence [proper-mongodb-collection {:keys [limit postapply] :as params}]
   (if (and limit (= 0 (fix-param :limit limit)))
     []
-    (let [cursor-seq (map <-mongo-object (make-mongo-object-seq proper-mongo-collection params))]
-      (if postapply (postapply cursor-seq) cursor-seq))))
+    (let [cursor-sequence (map <-mongo-object (sequence-from-cursor proper-mongodb-collection (make-cursor proper-mongodb-collection params)))]
+      (if postapply (postapply cursor-sequence) cursor-sequence))))
 
-(defn- count-docs [proper-mongo-collection {:keys [skip limit restrict] :as params}]
-  (let [count (count-restricted-docs proper-mongo-collection restrict)
+(defn count-documents [proper-mongodb-collection {:keys [skip limit restrict] :as params}]
+  (let [count (count-restricted-documents proper-mongodb-collection restrict)
         count (if skip (- count skip) count)
         count (if (neg? count) 0 count)]
     (if limit
       (min limit count)
       count)))
 
-(defn- fetch-one [proper-mongo-collection {:keys [order skip postapply] :as params}]
+(defn fetch-one [proper-mongodb-collection {:keys [order skip postapply] :as params}]
   (if (or order (and skip (not (= 0 skip))))
-    (first (make-seq proper-mongo-collection (assoc params :limit 1)))
-    (apply-postapply-to-object (<-mongo-object (call-find-one proper-mongo-collection params)) postapply)))
+    (first (make-sequence proper-mongodb-collection (assoc params :limit 1)))
+    (apply-postapply-to-object (<-mongo-object (call-find-one proper-mongodb-collection params)) postapply)))
 
-(defn- delete! [proper-mongo-collection {:keys [restrict skip limit] :as params}]
+(defn delete! [proper-mongodb-collection {:keys [restrict skip limit] :as params}]
   (when (or skip limit)
     (throw (UnsupportedOperationException. "Deletion with limit or skip is unsupported.")))
-  (call-delete proper-mongo-collection params)
+  (call-delete proper-mongodb-collection params)
   nil)
 
-(defn- apply-db-cursor-params! [cursor params]
+(defn ^{:private true} apply-db-cursor-params! [cursor params]
   (doseq [[param apply-fn] {:order #(.sort ^DBCursor cursor ^DBObject %)
                             :skip #(.skip ^DBCursor cursor ^int %)
                             :limit #(.limit ^DBCursor cursor ^int %)
@@ -58,7 +66,7 @@
       (apply-fn (fix-param param (param params)))))
   cursor)
 
-(defn- update-in-db-collection [db-collection {:keys [restrict project order skip postapply] :as params} operations upsert?]
+(defn ^{:private true} update-in-db-collection [db-collection {:keys [restrict project order skip postapply] :as params} operations upsert?]
   (when skip
     (throw (UnsupportedOperationException. "Update with limit or skip is unsupported.")))
   (let [updated-object (<-mongo-object (.findAndModify ^DBCollection db-collection
@@ -71,7 +79,7 @@
                                                        upsert?))]
     (apply-postapply-to-object updated-object postapply)))
 
-(defn- update-multi-in-db-collection [db-collection ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations upsert?]
+(defn ^{:private true} update-multi-in-db-collection [db-collection ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations upsert?]
   (when skip
     (throw (UnsupportedOperationException. "Update with skip is unsupported.")))
   (if limit
@@ -90,39 +98,34 @@
                                                       :replace MapReduceCommand$OutputType/REPLACE})
 
 (extend-type DBCollection
-  ProperMongoCollection
-  (make-mongo-object-seq [this ^IPersistentMap {:keys [restrict project] :as params}]
-    (iterator-seq (apply-db-cursor-params! (.find ^DBCollection this
-                                                  ^DBObject (fix-param :restrict restrict)
-                                                  ^DBObject (fix-param :project project))
-                                           params)))
-  (count-restricted-docs [this ^IPersistentMap restriction]
-    (.count ^DBCollection this
-            ^DBObject (fix-param :restrict restriction)))
-  (call-find-one [this ^IPersistentMap {:keys [restrict project]}]
+  ProperMongoDBCollection
+  (collection-name [this]
+    (.getName this))
+  (make-cursor [this ^IPersistentMap {:keys [restrict project] :as params}]
+    (apply-db-cursor-params! (.find ^DBCollection this
+                                    ^DBObject (fix-param :restrict restrict)
+                                    ^DBObject (fix-param :project project))
+                             params))
+  (sequence-from-cursor [this ^DBCursor cursor]
+    (iterator-seq cursor))
+  (call-find-one [this ^IPersistentMap {:keys [restrict project] :as params}]
     (.findOne ^DBCollection this
               ^DBObject (fix-param :restrict restrict)
               ^DBObject (fix-param :project project)))
-  (call-delete [this ^IPersistent {:keys [restrict]}]
-    (.remove ^DBCollection this
-             ^DBObject (fix-param :restrict restrict)))
-  query/QuerySource
-  (collection-name [this]
-    (.getName this))
-  (make-seq [this ^IPersistentMap params]
-    (make-seq this params))
-  (count-docs [this ^IPersistentMap params]
-    (count-docs this params))
-  (fetch-one [this ^IPersistentMap params]
-    (fetch-one this params))
-  (insert! [this ^IPersistentMap params ^IPersistentMap doc]
-    (first (query/insert-multi! this params [doc])))
-  (insert-multi! [this ^IPersistentMap {:keys [postapply]} ^Sequential docs]
-    (let [mongo-objects (map mongo-object<- docs)]
+  (count-restricted-documents [this ^IPersistentMap restriction]
+    (.count ^DBCollection this
+            ^DBObject (fix-param :restrict restriction)))
+  (insert! [this ^IPersistentMap params ^IPersistentMap document]
+    (first (insert-multi! this params [document])))
+  (insert-multi! [this ^IPersistentMap {:keys [postapply]} ^Sequential documents]
+    (let [mongo-objects (map mongo-object<- documents)]
       (.insert ^DBCollection this
                ^List mongo-objects)
       (let [inserted-objects (map <-mongo-object mongo-objects)]
         (if postapply (postapply inserted-objects) inserted-objects))))
+  (call-delete [this ^IPersistent {:keys [restrict]}]
+    (.remove ^DBCollection this
+             ^DBObject (fix-param :restrict restrict)))
   (update! [this ^IPersistentMap params ^IPersistentMap operations]
     (update-in-db-collection this params operations false))
   (update-multi! [this ^IPersistentMap {:keys [restrict skip limit] :as params} ^IPersistentMap operations]
@@ -151,7 +154,7 @@
                                 ^MapReduceCommand (let [command (MapReduceCommand. ^DBCollection this
                                                                                    ^String map
                                                                                    ^String reduce
-                                                                                   ^String (when out (query/collection-name out))
+                                                                                   ^String (when out (collection-name out))
                                                                                    ^MapReduceCommand$OutputType (or (map-reduce-command-output-type out-type) out-type MapReduceCommand$OutputType/REPLACE)
                                                                                    ^DBObject (fix-param :restrict restrict))]
                                                     (when limit (.setLimit command ^int (fix-param :limit limit)))
@@ -173,16 +176,22 @@
   (<-mongo-object [this]
     (<-db-object this)))
 
-(gen-interface :name mongoika.proper-mongo-collection.GridFSDBFileSettable
+(gen-interface :name mongoika.proper-mongodb-collection.GridFSDBFileSettable
                :methods [[_setFrom [com.mongodb.gridfs.GridFS com.mongodb.gridfs.GridFSDBFile] com.mongodb.gridfs.GridFSDBFile]])
 
 (extend-type GridFS
-  ProperMongoCollection
-  (make-mongo-object-seq [this ^IPersistentMap {:keys [restrict] :as params}]
+  ProperMongoDBCollection
+  (collection-name [this]
+    (.getBucketName this))
+  (make-cursor [this ^IPersistentMap {:keys [restrict] :as params}]
+    (apply-db-cursor-params! (.getFileList ^GridFS this
+                                           ^DBObject (fix-param :restrict restrict))
+                             params))
+  (sequence-from-cursor [this ^DBCursor cursor]
     (map (fn [file]
            ;; GridFS#getFileList does not set a GridFS in fetched files.
            ;; A GridFS mus be set in a GridFSDBFile when read data from it.
-           (._setFrom (proxy [GridFSDBFile mongoika.proper-mongo-collection.GridFSDBFileSettable] []
+           (._setFrom (proxy [GridFSDBFile mongoika.proper-mongodb-collection.GridFSDBFileSettable] []
                         (_setFrom [^GridFS grid-fs ^GridFSDBFile file]
                           ;; GridFSDBFile does not support putAll().
                           (doseq [key (.keySet ^DBObject file)]
@@ -193,30 +202,16 @@
                           this))
                       this
                       file))
-         (iterator-seq (apply-db-cursor-params! (.getFileList ^GridFS this
-                                                              ^DBObject (fix-param :restrict restrict))
-                                                params))))
-  (count-restricted-docs [this ^IPersistentMap restriction]
-    (.count (.getFileList ^GridFS this
-                          ^DBObject (fix-param :restrict restriction))))
+         (iterator-seq cursor)))
   (call-find-one [this ^IPersistentMap {:keys [restrict]}]
     (.findOne ^GridFS this
               ^DBObject (fix-param :restrict restrict)))
-  (call-delete [this ^IPersistentMap {:keys [restrict]}]
-    (.remove ^GridFS this
-             ^DBObject (fix-param :restrict restrict)))
-  query/QuerySource
-  (collection-name [this]
-    (.getBucketName this))
-  (make-seq [this ^IPersistentMap params]
-    (make-seq this params))
-  (count-docs [this ^IPersistentMap params]
-    (count-docs this params))
-  (fetch-one [this ^IPersistentMap params]
-    (fetch-one this params))
-  (insert! [this ^IPersistentMap {:keys [postapply]} ^IPersistentMap {:keys [data] :as doc}]
+  (count-restricted-documents [this ^IPersistentMap restriction]
+    (.count (.getFileList ^GridFS this
+                          ^DBObject (fix-param :restrict restriction))))
+  (insert! [this ^IPersistentMap {:keys [postapply]} ^IPersistentMap {:keys [data] :as document}]
     (let [file (.createFile ^GridFS this data)]
-      (doseq [[attribute value] (dissoc doc :data)]
+      (doseq [[attribute value] (dissoc document :data)]
         (.put ^GridFSInputFile file ^String (str<- attribute) ^Object (mongo-object<- value)))
       ;; Avoid a bug: An invalid length is set if the chunk size is less than or equal to the data length.
       ;; The save method set the chunk size before saving if it received a chunk size.
@@ -226,8 +221,11 @@
       (let [inserted-file (assoc (<-mongo-object file)
                             :data data)]
         (apply-postapply-to-object inserted-file postapply))))
-  (insert-multi! [this ^IPersistentMap params ^Sequential docs]
-    (doall (map #(query/insert! this params %) docs)))
+  (insert-multi! [this ^IPersistentMap params ^Sequential documents]
+    (doall (map #(insert! this params %) documents)))
+  (call-delete [this ^IPersistentMap {:keys [restrict]}]
+    (.remove ^GridFS this
+             ^DBObject (fix-param :restrict restrict)))
   (update! [this ^IPersistentMap params ^IPersistentMap operations]
     (throw (UnsupportedOperationException. "GridFS does not support update!.")))
   (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]

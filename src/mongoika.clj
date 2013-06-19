@@ -2,7 +2,7 @@
   (use [mongoika
         [conversion :only [mongo-object<- <-mongo-object keyword<- str<-]]])
   (require [mongoika
-            [proper-mongo-collection :as proper]
+            [proper-mongodb-collection :as proper-mongodb-collection]
             [params :as params]
             [query :as query]
             [db-ref :as db-ref]])
@@ -152,59 +152,15 @@
 
 (extend-protocol query/QuerySource
   Named
-  (collection-name [this]
-    (name this))
-  (make-seq [this ^IPersistentMap params]
-    (query/make-seq (db-collection this) params))
-  (count-docs [this ^IPersistentMap params]
-    (query/count-docs (db-collection this) params))
-  (fetch-one [this ^IPersistentMap params]
-    (query/fetch-one (db-collection this) params))
-  (insert! [this ^IPersistentMap params ^IPersistentMap doc]
-    (query/insert! (db-collection this) params doc))
-  (insert-multi! [this ^IPersistentMap params ^Sequential docs]
-    (query/insert-multi! (db-collection this) params docs))
-  (update! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/update! (db-collection this) params operations))
-  (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/update-multi! (db-collection this) params operations))
-  (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/upsert! (db-collection this) params operations))
-  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/upsert-multi! (db-collection this) params operations))
-  (delete-one! [this ^IPersistentMap params]
-    (query/delete-one! (db-collection this) params))
-  (delete! [this ^IPersistentMap params]
-    (query/delete! (db-collection this) params))
-  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
-    (query/map-reduce! (db-collection this) params options))
+  (proper-mongodb-collection [this]
+    (db-collection this))
+  (parameters [this]
+    {})
   String
-  (collection-name [this]
-    this)
-  (make-seq [this ^IPersistentMap params]
-    (query/make-seq (db-collection this) params))
-  (count-docs [this ^IPersistentMap params]
-    (query/count-docs (db-collection this) params))
-  (fetch-one [this ^IPersistentMap params]
-    (query/fetch-one (db-collection this) params))
-  (insert! [this ^IPersistentMap params ^IPersistentMap doc]
-    (query/insert! (db-collection this) params doc))
-  (insert-multi! [this ^IPersistentMap params ^Sequential docs]
-    (query/insert-multi! (db-collection this) params docs))
-  (update! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/update! (db-collection this) params operations))
-  (update-multi! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/update-multi! (db-collection this) params operations))
-  (upsert! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/upsert! (db-collection this) params operations))
-  (upsert-multi! [this ^IPersistentMap params ^IPersistentMap operations]
-    (query/upsert-multi! (db-collection this) params operations))
-  (delete-one! [this ^IPersistentMap params]
-    (query/delete-one! (db-collection this) params))
-  (delete! [this ^IPersistentMap params]
-    (query/delete! (db-collection this) params))
-  (map-reduce! [this ^IPersistentMap params ^IPersistentMap options]
-    (query/map-reduce! (db-collection this) params options)))
+  (proper-mongodb-collection [this]
+    (db-collection this))
+  (parameters [this]
+    {}))
 
 (defn query-source? [x]
   (satisfies? query/QuerySource x))
@@ -264,35 +220,35 @@
   (postapply (partial map f) query-source))
 
 (defn fetch-one [query-source]
-  (query/fetch-one query-source {}))
+  (proper-mongodb-collection/fetch-one (query/proper-mongodb-collection query-source) (query/parameters query-source)))
 
 (defn insert! [query-source doc]
-  (query/insert! query-source {} doc))
+  (proper-mongodb-collection/insert! (query/proper-mongodb-collection query-source) (query/parameters query-source) doc))
 
 (defn insert-multi! [query-source & docs]
-  (query/insert-multi! query-source {} docs))
+  (proper-mongodb-collection/insert-multi! (query/proper-mongodb-collection query-source) (query/parameters query-source) docs))
 
 (defn update! [& update-operations-and-query-source]
   (let [[update-operations query-source] (split-last update-operations-and-query-source)]
-    (query/update! query-source {} (apply hash-map update-operations))))
+    (proper-mongodb-collection/update! (query/proper-mongodb-collection query-source) (query/parameters query-source) (apply hash-map update-operations))))
 
 (defn update-multi! [& update-operations-and-query-source]
   (let [[update-operations query-source] (split-last update-operations-and-query-source)]
-    (query/update-multi! query-source {} (apply hash-map update-operations))))
+    (proper-mongodb-collection/update-multi! (query/proper-mongodb-collection query-source) (query/parameters query-source) (apply hash-map update-operations))))
 
 (defn upsert! [& update-operations-and-query-source]
   (let [[update-operations query-source] (split-last update-operations-and-query-source)]
-    (query/upsert! query-source {} (apply hash-map update-operations))))
+    (proper-mongodb-collection/upsert! (query/proper-mongodb-collection query-source) (query/parameters query-source) (apply hash-map update-operations))))
 
 (defn upsert-multi! [& update-operations-and-query-source]
   (let [[update-operations query-source] (split-last update-operations-and-query-source)]
-    (query/upsert-multi! query-source {} (apply hash-map update-operations))))
+    (proper-mongodb-collection/upsert-multi! (query/proper-mongodb-collection query-source) (query/parameters query-source) (apply hash-map update-operations))))
 
 (defn delete-one! [query-source]
-  (query/delete-one! query-source {}))
+  (proper-mongodb-collection/delete-one! (query/proper-mongodb-collection query-source) (query/parameters query-source)))
 
 (defn delete! [query-source]
-  (query/delete! query-source {}))
+  (proper-mongodb-collection/delete! (query/proper-mongodb-collection query-source) (query/parameters query-source)))
 
 (defn ^{:doc "Invoke map/reduce with query and options.
 
@@ -307,8 +263,9 @@ Options:
 
 The query can contain restriction, limit and order."}
   map-reduce! [& options-and-query-source]
-  (let [[options query-source] (split-last options-and-query-source)]
-    (query/map-reduce! query-source {} (apply hash-map options))))
+  (let [[options query-source] (split-last options-and-query-source)
+        {:keys [out] :as options} (apply hash-map options)]
+    (proper-mongodb-collection/map-reduce! (query/proper-mongodb-collection query-source) (query/parameters query-source) (if out (assoc options :out (query/proper-mongodb-collection out)) options))))
 
 (defn grid-fs
   ([bucket]
