@@ -176,9 +176,6 @@
   (<-mongo-object [this]
     (<-db-object this)))
 
-(gen-interface :name mongoika.proper-mongodb-collection.GridFSDBFileSettable
-               :methods [[_setFrom [com.mongodb.gridfs.GridFS com.mongodb.gridfs.GridFSDBFile] com.mongodb.gridfs.GridFSDBFile]])
-
 (extend-type GridFS
   ProperMongoDBCollection
   (collection-name [this]
@@ -188,20 +185,7 @@
                                            ^DBObject (fix-param :restrict restrict))
                              params))
   (sequence-from-cursor [this ^DBCursor cursor]
-    (map (fn [file]
-           ;; GridFS#getFileList does not set a GridFS in fetched files.
-           ;; A GridFS mus be set in a GridFSDBFile when read data from it.
-           (._setFrom (proxy [GridFSDBFile mongoika.proper-mongodb-collection.GridFSDBFileSettable] []
-                        (_setFrom [^GridFS grid-fs ^GridFSDBFile file]
-                          ;; GridFSDBFile does not support putAll().
-                          (doseq [key (.keySet ^DBObject file)]
-                            (.put this
-                                  ^String key
-                                  ^Object (.get ^DBObject file ^String key)))
-                          (.setGridFS this ^GridFS grid-fs)
-                          this))
-                      this
-                      file))
+    (map #(mongoika.GridFSDBFileSettable. this %)
          (iterator-seq cursor)))
   (call-find-one [this ^IPersistentMap {:keys [restrict]}]
     (.findOne ^GridFS this
