@@ -16,93 +16,12 @@
   (parameters [this] {})
   GridFS
   (proper-mongodb-collection [this] this)
-  (parameters [this] {}))
-
-(declare make-query)
-
-(deftype query [^IPersistentMap meta
-                ^LazySeq documentsLazySequence
-                properMongoDBCollection
-                ^IPersistentMap parameters]
-  Object
-  (^int hashCode [^query this]
-    (.hashCode documentsLazySequence))
-  (^boolean equals [^query this ^Object o]
-    (.equals documentsLazySequence o))
-  IObj
-  (^IPersistentMap meta [^query this]
-    meta)
-  (^IObj withMeta [^query this ^IPersistentMap meta]
-    (make-query properMongoDBCollection parameters meta))
-  Counted
-  (^int count [^query this]
-    (if (realized? documentsLazySequence)
-      (count documentsLazySequence)
-      (proper-mongodb-collection/count-documents properMongoDBCollection parameters)))
-  Sequential
-  ISeq
-  (^ISeq seq [^query this]
-    (.seq documentsLazySequence))
-  (^IPersistentCollection empty [^query this]
-    (.empty documentsLazySequence))
-  (^boolean equiv [^query this ^Object o]
-    (.equiv documentsLazySequence o))
-  (^Object first [^query this]
-    (.first documentsLazySequence))
-  (^ISeq next [^query this]
-    (.next documentsLazySequence))
-  (^ISeq more [^query this]
-    (.more documentsLazySequence))
-  (^ISeq cons [^query this ^Object o]
-    (.cons documentsLazySequence o))
-  List
-  (^objects toArray [^query this]
-    (.toArray documentsLazySequence))
-  (^objects toArray [^query this ^objects a]
-    (.toArray documentsLazySequence a))
-  (^boolean remove [^query this ^Object o]
-    (.remove documentsLazySequence o))
-  (^void clear [^query this]
-    (.clear documentsLazySequence))
-  (^boolean retainAll [^query this ^Collection c]
-    (.retainAll documentsLazySequence c))
-  (^boolean removeAll [^query this ^Collection c]
-    (.removeAll documentsLazySequence c))
-  (^boolean containsAll [^query this ^Collection c]
-    (.containsAll documentsLazySequence c))
-  (^int size [^query this]
-    (.size documentsLazySequence))
-  (^boolean isEmpty [^query this]
-    (.isEmpty documentsLazySequence))
-  (^boolean contains [^query this ^Object o]
-    (.contains documentsLazySequence o))
-  (^Iterator iterator [^query this]
-    (.iterator documentsLazySequence))
-  (^List subList [^query this ^int from ^int to]
-    (.subList documentsLazySequence from to))
-  (^Object set [^query this ^int i ^Object o]
-    (.set documentsLazySequence i o))
-  (^int indexOf [^query this ^Object o]
-    (.indexOf documentsLazySequence o))
-  (^int lastIndexOf [^query this ^Object o]
-    (.lastIndexOf documentsLazySequence o))
-  (^ListIterator listIterator [^query this]
-    (.listIterator documentsLazySequence))
-  (^ListIterator listIterator [^query this ^int i]
-    (.listIterator documentsLazySequence i))
-  (^Object get [^query this ^int i]
-    (.get documentsLazySequence i))
-  (^boolean add [^query this ^Object o]
-    (.add documentsLazySequence o))
-  (^void add [^query this ^int i ^Object o]
-    (.add documentsLazySequence i o))
-  (^boolean addAll [^query this ^int i ^Collection c]
-    (.addAll documentsLazySequence i c))
-  (^boolean addAll [^query this ^Collection c]
-    (.addAll documentsLazySequence c))
-  IPending
-  (^boolean isRealized [^query this]
-    (.isRealized documentsLazySequence)))
+  (parameters [this] {})
+  mongoika.QuerySequence
+  (proper-mongodb-collection [this]
+    (.properMongoDBCollection this))
+  (parameters [this]
+    (.parameters this)))
 
 (defmulti merge-param (fn [key current new] key))
 
@@ -170,18 +89,16 @@
           current
           new))
 
-(extend-type query
-  QuerySource
-  (proper-mongodb-collection [this]
-    (.properMongoDBCollection this))
-  (parameters [this]
-    (.parameters this)))
+(def proper-mongodb-collection-adapter
+  (proxy [mongoika.ProperMongoDBCollectionAdapter] []
+    (countDocuments [proper-mongodb-collection parameters]
+      (proper-mongodb-collection/count-documents proper-mongodb-collection parameters))))
 
 (defn make-query
   ([query-source params meta]
      (let [proper-mongodb-collection (proper-mongodb-collection query-source)
            merged-params (merge-params (parameters query-source) params)]
-       (query. ^IPersistentMap meta ^LazySeq (lazy-seq (proper-mongodb-collection/make-sequence proper-mongodb-collection merged-params)) proper-mongodb-collection ^IPersistentMap merged-params)))
+       (mongoika.QuerySequence. ^IPersistentMap meta ^LazySeq (lazy-seq (proper-mongodb-collection/make-sequence proper-mongodb-collection merged-params)) ^Object proper-mongodb-collection ^IPersistentMap merged-params ^mongoika.ProperMongoDBCollectionAdapter proper-mongodb-collection-adapter)))
   ([query-source params]
      (make-query query-source params (if (instance? IMeta query-source) (meta query-source) {})))
   ([query-source]
