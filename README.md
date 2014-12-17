@@ -1,4 +1,4 @@
-![][https://raw.github.com/yuushimizu/Mongoika/master/logo.png]
+![](https://raw.github.com/yuushimizu/Mongoika/master/logo.png)
 
 # Mongoika
 
