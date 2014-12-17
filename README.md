@@ -1,4 +1,4 @@
-![][LogoImage]
+![][https://raw.github.com/yuushimizu/Mongoika/master/logo.png]
 
 # Mongoika
 
@@ -455,5 +455,3 @@ to your project.clj.
 ## Mongoika?
 
 Mongoika is named from a cuttlefish called "Mongou Ika" (紋甲イカ) in Japanese.
-
-[LogoImage]: https://raw.github.com/yuushimizu/Mongoika/master/logo.png
